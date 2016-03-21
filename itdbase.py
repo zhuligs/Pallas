@@ -49,7 +49,9 @@ class Cell:
         return self.name
 
     def set_lattice(self, lat):
-        self.lattice = np.array(lat)
+        cons = lat2lcons(lat)
+        newlat = lcons2lat(cons)
+        self.lattice = np.array(newlat)
 
     def get_lattice(self):
         return self.lattice
@@ -60,7 +62,7 @@ class Cell:
     def set_types(self):
         types = []
         for i in range(len(self.typt)):
-            types += [i+1] * self.typt[i]
+            types += [i + 1] * self.typt[i]
         self.types = np.array(types, int)
 
     def get_types(self):
@@ -130,8 +132,8 @@ class Cell:
         znucl = self.znucl
         (sfp, lfp) = fppy.fp_periodic(lat, rxyz, types, znucl, lmax, natx,
                                       cutoff)
-        self.sfp = sfp
-        self.lfp = lfp
+        self.sfp = np.array(sfp)
+        self.lfp = np.array(lfp)
 
     def get_sfp(self):
         return self.sfp
@@ -156,12 +158,12 @@ def lat2lcons(lat):
     rb = math.sqrt(lat[1][0]**2 + lat[1][1]**2 + lat[1][2]**2)
     rc = math.sqrt(lat[2][0]**2 + lat[2][1]**2 + lat[2][2]**2)
 
-    cosa = (lat[1][0]*lat[2][0] + lat[1][1]*lat[2][1] +
-            lat[1][2]*lat[2][2])/rb/rc
-    cosb = (lat[0][0]*lat[2][0] + lat[0][1]*lat[2][1] +
-            lat[0][2]*lat[2][2])/ra/rc
-    cosc = (lat[0][0]*lat[1][0] + lat[0][1]*lat[1][1] +
-            lat[0][2]*lat[1][2])/rb/ra
+    cosa = (lat[1][0] * lat[2][0] + lat[1][1] * lat[2][1] +
+            lat[1][2] * lat[2][2]) / rb / rc
+    cosb = (lat[0][0] * lat[2][0] + lat[0][1] * lat[2][1] +
+            lat[0][2] * lat[2][2]) / ra / rc
+    cosc = (lat[0][0] * lat[1][0] + lat[0][1] * lat[1][1] +
+            lat[0][2] * lat[1][2]) / rb / ra
 
     alpha = math.acos(cosa)
     beta = math.acos(cosb)
@@ -173,13 +175,13 @@ def lat2lcons(lat):
 def lcons2lat(cons):
     (a, b, c, alpha, beta, gamma) = cons
 
-    bc2 = b**2 + c**2 - 2*b*c*math.cos(alpha)
+    bc2 = b**2 + c**2 - 2 * b * c * math.cos(alpha)
 
     h1 = a
     h2 = b * math.cos(gamma)
     h3 = b * math.sin(gamma)
     h4 = c * math.cos(beta)
-    h5 = ((h2 - h4)**2 + h3**2 + c**2 - h4**2 - bc2)/(2 * h3)
+    h5 = ((h2 - h4)**2 + h3**2 + c**2 - h4**2 - bc2) / (2 * h3)
     h6 = math.sqrt(c**2 - h4**2 - h5**2)
 
     lattice = [[h1, 0., 0.], [h2, h3, 0.], [h4, h5, h6]]
@@ -197,4 +199,3 @@ def get_cutoff(lat):
     h_bc = volume / area_bc
     h = np.array([h_ab, h_ac, h_bc], float)
     return h.min() * 0.75 / 2.
-
