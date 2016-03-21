@@ -77,7 +77,7 @@ def w3(reac, prod):
         for ip in range(itin.npop):
             xloc = xlocs[ip]
             if sdata.ifpso[ip]:
-                (xsad, xmode, v) = gen_psallde(xloc)
+                (xsad, xmode, v) = gen_psallde(xloc, istep, ip)
             else:
                 (xsad, xmode) = gen_rsaddle(xloc)
                 v = get_0mode()
@@ -87,7 +87,7 @@ def w3(reac, prod):
             XMode.append(xmode)
             gmode = -1 * get_mode(xsad, prod)
             nloc = gopt(xsad, gmode)
-            if abs(nloc.get_e - 151206) < 1.0:
+            if abs(nloc.get_e() - 151206) < 1.0:
                 gmode = get_0mode()
                 nloc = gopt(xsad, gmode)
             XLoc.append(nloc)
