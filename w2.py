@@ -38,9 +38,9 @@ def ww(reac, prod):
         dist2p.append([ip, dist])
         print "ZLOG# NEW LOC %d DIST: %g" % (ip, dist)
     sortdist2p = sorted(dist2p, key=lambda x: x[1])
-    iratio = itin.psoratio * itin.npop
+    iratio = int(itin.psoratio * itin.npop) + 1
     for ip in range(itin.npop):
-        if dist2p[ip][1] > dist2p[iratio][1]:
+        if dist2p[ip][1] > sortdist2p[iratio][1]:
             sdata.ifpso[ip] = False
         else:
             sdata.ifpso[ip] = True
