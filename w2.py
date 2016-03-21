@@ -66,9 +66,14 @@ def psov(xmode, v0, w, pbest, gbest):
 def w3(reac, prod):
     # step 0
     ww(reac, prod)
+    fpp = prod.get_lfp()
     for istep in range(itin.instep):
         xlocs = sdata.wlocs[istep]
         vt = []
+        XMode = []
+        XSad = []
+        XLoc = []
+        dist2p = []
         for ip in range(itin.npop):
             xloc = xlocs[ip]
             if sdata.ifpso[ip]:
@@ -78,12 +83,42 @@ def w3(reac, prod):
                 v = get_0mode()
                 # not real mode, just generate the ZERO velocity
             vt.append(v)
+            XSad.append(xsad)
+            XMode.append(xmode)
             gmode = -1 * get_mode(xsad, prod)
             nloc = gopt(xsad, gmode)
             if abs(nloc.get_e - 151206) < 1.0:
                 gmode = get_0mode()
                 nloc = gopt(xsad, gmode)
+            XLoc.append(nloc)
+            fp = nloc.get_lfp()
+            (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fp, fpp)
+            dist2p.append([ip, dist])
+            print "ZLOG# STEP %d NEW LOC %d DIST: %g" % (istep, ip, dist)
+        sortdist2p = sorted(dist2p, key=lambda x: x[1])
+        iratio = itin.psoratio * itin.npop
+        for ip in range(itin.npop):
+            if dist2p[ip][1] > dist2p[iratio][1]:
+                sdata.ifpso[ip] = False
+            else:
+                sdata.ifpso[ip] = True
+        ipbest = sortdist2p[0][0]
+        pbest = cp(XMode[ipbest])
+        gbest = sdata.gmodes[istep]
+        if sortdist2p[0][1] < sdata.bestdist:
+            sdata.bestdist = sortdist2p[0][1]
+            sdata.gmodes.append(pbest)
+        else:
+            sdata.gmodes.append(gbest)
         sdata.wvs.append(vt)
+        sdata.pmodes.append(pbest)
+        sdata.wmodes.append(XMode)
+        sdata.wsads.append(XSad)
+        sdata.wlocs.append(XLoc)
+
+        if sortdist2p[0][1] < itin.dist:
+            print "ZLOG # converged", sortdist2p[0][1]
+            break
 
 
 def gen_psallde(reac, istep, ip):
@@ -157,7 +192,7 @@ def initrun():
 
 def main():
     (reac, prod) = initrun()
-    ww(reac, prod)
+    w3(reac, prod)
 
 
 if __name__ == "__main__":
