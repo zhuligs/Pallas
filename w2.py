@@ -184,7 +184,7 @@ def outputw():
         for j in range(itin.npop):
             xsad = sdata.wsads[i][j]
             xloc = sdata.wlocs[i][j]
-            dis = sdata.wdis[i][j]
+            dis = sdata.wdis[i][j][1]
             write_cell_to_vasp(xsad, pdir + '/xsad_' + str(j) + '.vasp')
             write_cell_to_vasp(xloc, pdir + '/xloc_' + str(j) + '.vasp')
             f.write("%4d  %8.7E  %8.7E  %8.7E\n" %
