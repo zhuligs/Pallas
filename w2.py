@@ -8,6 +8,7 @@ from copy import deepcopy as cp
 from wrapdimer import get_mode, get_0mode, get_rmode
 from zfunc import gopt, rundim, set_cell_from_vasp, write_cell_to_vasp
 import numpy as np
+import os
 
 
 def ww(reac, prod):
@@ -26,6 +27,7 @@ def ww(reac, prod):
         XMode.append(xmode)
         XSaddle.append(xsad)
         gmode = -1 * get_mode(xsad, prod)
+        # gmode = get_0mode()
         xloc = gopt(xsad, gmode)
         if abs(xloc.get_e() - 151206) < 1.0:
             gmode = get_0mode()
@@ -53,6 +55,7 @@ def ww(reac, prod):
     sdata.bestdist = sortdist2p[0][1]
     sdata.wsads.append(XSaddle)
     sdata.wlocs.append(XLoc)
+    sdata.wdis.append(dist2p)
 
 
 def psov(xmode, v0, w, pbest, gbest):
@@ -86,6 +89,7 @@ def w3(reac, prod):
             XSad.append(xsad)
             XMode.append(xmode)
             gmode = -1 * get_mode(xsad, prod)
+            # gmode = get_0mode()
             nloc = gopt(xsad, gmode)
             if abs(nloc.get_e() - 151206) < 1.0:
                 gmode = get_0mode()
@@ -96,9 +100,9 @@ def w3(reac, prod):
             dist2p.append([ip, dist])
             print "ZLOG# STEP %d NEW LOC %d DIST: %g" % (istep, ip, dist)
         sortdist2p = sorted(dist2p, key=lambda x: x[1])
-        iratio = itin.psoratio * itin.npop
+        iratio = int(itin.psoratio * itin.npop) + 1
         for ip in range(itin.npop):
-            if dist2p[ip][1] > dist2p[iratio][1]:
+            if dist2p[ip][1] > sortdist2p[iratio][1]:
                 sdata.ifpso[ip] = False
             else:
                 sdata.ifpso[ip] = True
@@ -115,6 +119,7 @@ def w3(reac, prod):
         sdata.wmodes.append(XMode)
         sdata.wsads.append(XSad)
         sdata.wlocs.append(XLoc)
+        sdata.wdis.append(dist2p)
 
         if sortdist2p[0][1] < itin.dist:
             print "ZLOG # converged", sortdist2p[0][1]
@@ -169,6 +174,24 @@ def checkident(xcell):
     return True
 
 
+def outputw():
+    f = open('ZOUT', 'w')
+    n = len(sdata.wdis)
+    for i in range(n):
+        f.write("STEP: %d\n" % i)
+        pdir = 'data' + str(i)
+        os.system('mkdir ' + pdir)
+        for j in range(itin.npop):
+            xsad = sdata.wsads[i][j]
+            xloc = sdata.wlocs[i][j]
+            dis = sdata.wdis[i][j]
+            write_cell_to_vasp(xsad, pdir + '/xsad_' + str(j) + '.vasp')
+            write_cell_to_vasp(xloc, pdir + '/xloc_' + str(j) + '.vasp')
+            f.write("%4d  %8.7E  %8.7E  %8.7E\n" %
+                    (j, xsad.get_e(), xloc.get_e(), dis))
+    f.close()
+
+
 def initrun():
     sdata.ifpso = []
     for i in range(itin.npop):
@@ -193,6 +216,7 @@ def initrun():
 def main():
     (reac, prod) = initrun()
     w3(reac, prod)
+    outputw()
 
 
 if __name__ == "__main__":

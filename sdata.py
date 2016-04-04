@@ -8,6 +8,7 @@ localhistory = []
 
 types = np.array([0])
 
+wdis=[]
 wmodes = []
 wsads = []
 wlocs = []
