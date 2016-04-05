@@ -125,7 +125,7 @@ def get_rloc(reac):
 def applymode(xcell, mode):
     vol = xcell.get_volume()
     jacob = (vol / itin.nat)**(1.0/3.0) * itin.nat**0.5
-    lat = xcell.get_lattice() + np.dot(xcell.get_lattice, mode[-3:]/jacob)
+    lat = xcell.get_lattice() + np.dot(xcell.get_lattice(), mode[-3:]/jacob)
     xcell.set_lattice(lat)
     xcell.set_cart_positions(xcell.get_cart_positions() + mode[:-3])
     return xcell
