@@ -16,5 +16,7 @@ wvs = []
 pmodes = []
 gmodes = []
 bestdist = 1.0
+gbests = []
+x0s = []
 
 ifpso = []
