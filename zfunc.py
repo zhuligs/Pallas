@@ -141,3 +141,18 @@ def write_cell_to_vasp(xcell, pcar):
     for x in pos:
         f.write("%15.9f %15.9f %15.9f\n" % tuple(x))
     f.close()
+
+
+def getx(cell1, cell2):
+    mode = np.zeros((itin.nat + 3, 3))
+    mode[-3:] = cell1.get_lattice() - cell2.get_lattice()
+    ilat = np.linalg.inv(cell1.get_lattice())
+    vol = cell1.get_volume()
+    jacob = (vol / itin.nat)**(1.0 / 3.0) * itin.nat**0.5
+    mode[-3:] = np.dot(ilat, mode[-3:]) * jacob
+    pos1 = cell1.get_cart_positions()
+    pos2 = cell2.get_cart_positions()
+    for i in range(itin.nat):
+        mode[i] = pos1[i] - pos2[i]
+    mode = vunit(mode)
+    return mode

@@ -6,11 +6,9 @@ import fppy
 from copy import deepcopy as cp
 # import cPickle as pick
 from wrapdimer import get_mode, get_0mode, get_rmode
-from zfunc import gopt, rundim, set_cell_from_vasp, write_cell_to_vasp
+from zfunc import gopt, rundim, set_cell_from_vasp, write_cell_to_vasp, getx
 import numpy as np
 import os
-
-from w3 import getx
 
 
 def ww(reac, prod):
