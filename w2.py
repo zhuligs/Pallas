@@ -10,6 +10,8 @@ from zfunc import gopt, rundim, set_cell_from_vasp, write_cell_to_vasp
 import numpy as np
 import os
 
+from w3 import getx
+
 
 def ww(reac, prod):
     XMode = []
@@ -26,10 +28,12 @@ def ww(reac, prod):
         (xsad, xmode) = gen_rsaddle(reac)
         XMode.append(xmode)
         XSaddle.append(xsad)
-        gmode = -1 * get_mode(xsad, prod)
+        # gmode = -1 * get_mode(xsad, prod)
         # gmode = get_0mode()
+        gmode = -1 * xmode
         xloc = gopt(xsad, gmode)
         if abs(xloc.get_e() - 151206) < 1.0:
+            print "ZLOG: WARNING CODE 1"
             gmode = get_0mode()
             xloc = gopt(xsad, gmode)
         XLoc.append(xloc)
@@ -38,9 +42,11 @@ def ww(reac, prod):
         fp = xloc.get_lfp()
         (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fp, fpp)
         dist2p.append([ip, dist])
-        print "ZLOG# NEW LOC %d DIST: %g" % (ip, dist)
+        print "ZLOG: STEP %d NEW LOC %d DIST: %g" % (-1, ip, dist)
     sortdist2p = sorted(dist2p, key=lambda x: x[1])
-    iratio = int(itin.psoratio * itin.npop) + 1
+    iratio = int(itin.psoratio * itin.npop)
+    if iratio >= itin.npop:
+        iratio = itin.npop - 1
     for ip in range(itin.npop):
         if dist2p[ip][1] > sortdist2p[iratio][1]:
             sdata.ifpso[ip] = False
@@ -56,6 +62,10 @@ def ww(reac, prod):
     sdata.wsads.append(XSaddle)
     sdata.wlocs.append(XLoc)
     sdata.wdis.append(dist2p)
+    sdata.leader = cp(XLoc[ipbest])
+    sdata.pbests = cp(XLoc)
+    for i in range(itin.npop):
+        sdata.fitpbest[i] = dist2p[i][1]
 
 
 def psov(xmode, v0, w, pbest, gbest):
@@ -80,27 +90,35 @@ def w3(reac, prod):
         for ip in range(itin.npop):
             xloc = xlocs[ip]
             if sdata.ifpso[ip]:
-                (xsad, xmode, v) = gen_psallde(xloc, istep, ip)
+                (xsad, v) = gen_psallde(xloc, istep, ip)
             else:
-                (xsad, xmode) = gen_rsaddle(xloc)
-                v = get_0mode()
-                # not real mode, just generate the ZERO velocity
+                (xsad, v) = gen_rsaddle(xloc)
             vt.append(v)
             XSad.append(xsad)
-            XMode.append(xmode)
-            gmode = -1 * get_mode(xsad, prod)
+            XMode.append(v)
+            # gmode = -1 * get_mode(xsad, prod)
             # gmode = get_0mode()
+            gmode = -1 * v
             nloc = gopt(xsad, gmode)
             if abs(nloc.get_e() - 151206) < 1.0:
+                print "ZLOG: WARNING CODE 2"
                 gmode = get_0mode()
                 nloc = gopt(xsad, gmode)
+            sdata.saddlehistory.append(xsad)
+            sdata.localhistory.append(nloc)
             XLoc.append(nloc)
             fp = nloc.get_lfp()
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fp, fpp)
             dist2p.append([ip, dist])
-            print "ZLOG# STEP %d NEW LOC %d DIST: %g" % (istep, ip, dist)
+            print "ZLOG: STEP %d NEW LOC %d DIST: %g" % (istep, ip, dist)
+            # update the pbest
+            if dist < sdata.fitpbest[ip]:
+                sdata.fitpbest[ip] = dist
+                sdata.pbests[ip] = cp(nloc)
         sortdist2p = sorted(dist2p, key=lambda x: x[1])
-        iratio = int(itin.psoratio * itin.npop) + 1
+        iratio = int(itin.psoratio * itin.npop)
+        if iratio >= itin.npop:
+            iratio = itin.npop - 1
         for ip in range(itin.npop):
             if dist2p[ip][1] > sortdist2p[iratio][1]:
                 sdata.ifpso[ip] = False
@@ -112,6 +130,7 @@ def w3(reac, prod):
         if sortdist2p[0][1] < sdata.bestdist:
             sdata.bestdist = sortdist2p[0][1]
             sdata.gmodes.append(pbest)
+            sdata.leader = cp(XLoc[ipbest])
         else:
             sdata.gmodes.append(gbest)
         sdata.wvs.append(vt)
@@ -122,23 +141,29 @@ def w3(reac, prod):
         sdata.wdis.append(dist2p)
 
         if sortdist2p[0][1] < itin.dist:
-            print "ZLOG # converged", sortdist2p[0][1]
+            print "ZLOG: converged", sortdist2p[0][1]
             break
 
 
-def gen_psallde(reac, istep, ip):
-    xmode = cp(sdata.wmodes[istep][ip])
-    pbest = sdata.pmodes[istep]
-    gbest = sdata.gmodes[istep]
+def gen_psallde(x0, istep, ip):
+    # xmode = cp(sdata.wmodes[istep][ip])
+    # pbest = sdata.pmodes[istep]
+    # gbest = sdata.gmodes[istep]
+    pbest = sdata.pbests[ip]
+    gbest = sdata.leader
     v0 = sdata.wvs[istep][ip]
     w = 0.9 - 0.5 * (istep + 1) / itin.instep
-    v = psov(xmode, v0, w, pbest, gbest)
-    nmode = xmode + v
-    xsad = rundim(reac, xmode)
+    # v = psov(xmode, v0, w, pbest, gbest)
+    c1 = 2.0
+    c2 = 2.0
+    (r1, r2) = np.random.rand(2)
+    v = v0 * w + c1 * r1 * getx(pbest, x0) + c2 * r2 * getx(gbest, x0)
+    xsad = rundim(x0, v)
     if abs(xsad.get_e() - 151206) < 1.0:
-        (xsad, nmode) = gen_rsaddle(reac)
+        print "ZLOG: WARNING CODE 3"
+        (xsad, nmode) = gen_rsaddle(x0)
         v = get_0mode()
-    return (xsad, nmode, v)
+    return (xsad, v)
 
 
 def gen_rsaddle(reac):
@@ -149,7 +174,7 @@ def gen_rsaddle(reac):
             xmode = get_rmode()
             xsad = rundim(reac, xmode)
             e = xsad.get_e()
-            print 'ZLOG# SAD E:', e
+            # print 'ZLOG: SAD E:', e
         succ = checkident(xsad)
     return (xsad, xmode)
 
@@ -163,13 +188,13 @@ def checkident(xcell):
         fp = xstru.get_lfp()
         (dist, mt) = fppy.fp_dist(itin.ntyp, sdata.types, xfp, fp)
         if dist < itin.dist:
-            print 'ZLOG# same as sad %d, dist is %g' % (i, dist)
+            print 'ZLOG: same as sad %d, dist is %g' % (i, dist)
             return False
     for i, xstru in enumerate(sdata.localhistory):
         fp = xstru.get_lfp()
         (dist, mt) = fppy.fp_dist(itin.ntyp, sdata.types, xfp, fp)
         if dist < itin.dist:
-            print 'ZLOG# same as loc %d, dist is %g' % (i, dist)
+            print 'ZLOG: same as loc %d, dist is %g' % (i, dist)
             return False
     return True
 
