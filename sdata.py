@@ -17,6 +17,9 @@ pmodes = []
 gmodes = []
 bestdist = 1.0
 gbests = []
+leader = None
+pbests = []
+fitpbest = []
 x0s = []
 
 ifpso = []

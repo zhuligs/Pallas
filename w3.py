@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python -u
 # encoding: utf-8
 
 import itin
@@ -32,7 +32,11 @@ def goo(reac, prod):
         x0s.append(xloc0)
         print "ZLOG: STEP %d NEW LOC %d DIST: %8.7E" % (-1, ip, dist)
     sortdist2p = sorted(dist2p, key=lambda x: x[1])
-    iratio = int(itin.psoratio * itin.npop) + 1
+    iratio = int(itin.psoratio * itin.npop)
+    if iratio >= itin.npop:
+        iratio = itin.npop - 1
+    if iratio < 0:
+        iratio = 0
     for ip in range(itin.npop):
         if dist2p[ip][1] > sortdist2p[iratio][1]:
             sdata.ifpso[ip] = False
@@ -60,7 +64,8 @@ def goopso(reac, prod):
             if sdata.ifpso[ip]:
                 (ploc, xloc0, xmod) = get_ploc(istep, ip)
             else:
-                (ploc, xloc0, xmod) = get_rloc(sdata.wlocs[istep][ip])
+                # (ploc, xloc0, xmod) = get_rloc(sdata.wlocs[istep][ip])
+                (ploc, xloc0, xmod) = get_rloc(reac)
             xlocs.append(ploc)
             x0s.append(xloc0)
             xmods.append(xmod)
@@ -69,7 +74,11 @@ def goopso(reac, prod):
             dist2p.append([ip, dist])
             print "ZLOG: STEP %d NEW LOC %d DIST: %8.7E" % (istep, ip, dist)
         sortdist2p = sorted(dist2p, key=lambda x: x[1])
-        iratio = int(itin.psoratio * itin.npop) + 1
+        iratio = int(itin.psoratio * itin.npop)
+        if iratio >= itin.npop:
+            iratio = itin.npop - 1
+        if iratio < 0:
+            iratio = 0
         for ip in range(itin.npop):
             if dist2p[ip][1] > sortdist2p[iratio][1]:
                 sdata.ifpso[ip] = False
@@ -102,7 +111,8 @@ def get_ploc(istep, ip):
     c2 = 2.0
     (r1, r2) = np.random.rand(2)
     v = v0 * w + c1 * r1 * getx(pbest, x0) + c2 * r2 * getx(gbest, x0)
-    v = vunit(v)
+    # v = v0 * w + c1 * r1 * getx(x0, pbest) + c2 * r2 * getx(x0, gbest)
+    # v = vunit(v)
     xopt = applymode(pbest, v)
     mode0 = get_0mode()
     ploc = gopt(xopt, mode0)
@@ -118,6 +128,7 @@ def get_rloc(reac):
             xopt = applymode(reac, rmode)
             mode0 = get_0mode()
             xloc = gopt(xopt, mode0)
+            e = xloc.get_e()
         succ = checkloc(xloc)
     return (xloc, xopt, rmode)
 
@@ -132,7 +143,7 @@ def applymode(xcell, mode):
 
 
 def getx(cell1, cell2):
-    mode = np.zeros((itin.nat + 3), 3)
+    mode = np.zeros((itin.nat + 3, 3))
     mode[-3:] = cell1.get_lattice() - cell2.get_lattice()
     ilat = np.linalg.inv(cell1.get_lattice())
     vol = cell1.get_volume()
