@@ -154,7 +154,7 @@ def checkloc(xloc):
         fp = xstru.get_lfp()
         (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, xfp, fp)
         if dist < itin.dist:
-            print "ZLOG# same as loc %d, dist is %8.7E" % (i, dist)
+            print "ZLOG: same as loc %d, dist is %8.7E" % (i, dist)
             return False
     return True
 
