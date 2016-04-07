@@ -39,8 +39,9 @@ def ww(reac, prod):
         sdata.localhistory.append(xloc)
         fp = xloc.get_lfp()
         (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fp, fpp)
+        sdata.fitpbest.append(dist)
         dist2p.append([ip, dist])
-        print "ZLOG: STEP %d NEW LOC %d DIST: %g" % (-1, ip, dist)
+        print "ZLOG: STEP %d NEW LOC %d DIST: %8.7E" % (-1, ip, dist)
     sortdist2p = sorted(dist2p, key=lambda x: x[1])
     iratio = int(itin.psoratio * itin.npop)
     if iratio >= itin.npop:
@@ -62,8 +63,8 @@ def ww(reac, prod):
     sdata.wdis.append(dist2p)
     sdata.leader = cp(XLoc[ipbest])
     sdata.pbests = cp(XLoc)
-    for i in range(itin.npop):
-        sdata.fitpbest[i] = dist2p[i][1]
+    #for i in range(itin.npop):
+    #    sdata.fitpbest[i] = dist2p[i][1]
 
 
 def psov(xmode, v0, w, pbest, gbest):
@@ -108,7 +109,7 @@ def w3(reac, prod):
             fp = nloc.get_lfp()
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fp, fpp)
             dist2p.append([ip, dist])
-            print "ZLOG: STEP %d NEW LOC %d DIST: %g" % (istep, ip, dist)
+            print "ZLOG: STEP %d NEW LOC %d DIST: %8.7E PSO: %r" % (istep, ip, dist, sdata.ifpso[ip])
             # update the pbest
             if dist < sdata.fitpbest[ip]:
                 sdata.fitpbest[ip] = dist
