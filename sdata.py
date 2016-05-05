@@ -23,3 +23,20 @@ fitpbest = []
 x0s = []
 
 ifpso = []
+
+
+xslist = []
+yslist = []
+xllist = []
+yllist = []
+
+gbestx = None
+gbesty = None
+pbestx = []
+pbesty = []
+pdistx = []
+pdisty = []
+ifpsox = []
+ifpsoy = []
+xlocs = []
+ylocs = []
