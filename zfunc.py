@@ -109,8 +109,12 @@ def set_cell_from_vasp(pcar):
             buff.append(line.split())
 
     lat = np.array(buff[2:5], float)
-    typt = np.array(buff[5], int)
-    pos = np.array(buff[7:], float)
+    try:
+        typt = np.array(buff[5], int)
+    except:
+        del(buff[5])
+        typt = np.array(buff[5], int)
+    pos = np.array(buff[7:7+itin.nat], float)
     xcell.set_name(itin.sname)
     xcell.set_lattice(lat)
     if buff[6][0].strip()[0] == 'D':
