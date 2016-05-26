@@ -12,3 +12,4 @@ instep = 50
 outstep = 50
 
 psoratio = 0.6
+press = 150

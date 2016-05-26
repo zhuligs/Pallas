@@ -26,10 +26,12 @@ def con(reac, prod):
         mode = get_rmode()
         tcc = runvdim(reac, mode)
         rPool.append(tcc)
+        print "ZLOG: E, DIR", tcc.get_e(), sdata.ddir
         print "ZLOG: P DIM", i
         mode = get_rmode()
         tcc = runvdim(prod, mode)
         pPool.append(tcc)
+        print "ZLOG: E, DIR", tcc.get_e(), sdata.ddir
 
     dcompt = []
     for i in range(itin.ndimMax):
@@ -56,7 +58,9 @@ def con(reac, prod):
     # modey = -1*get_mode(ysp, prod)
     modex = get_0mode()
     xspl = goptv(xsp, modex)
+    print "ZLOG: XSPL, E, DIR", xspl.get_e(), sdata.gdir
     yspl = goptv(ysp, modex)
+    print "ZLOG: YSPL, E, DIR", yspl.get_e(), sdata.gdir
 
     rbe = xsp.get_e() - reac.get_e()
     pbe = ysp.get_e() - reac.get_e()
@@ -66,6 +70,76 @@ def con(reac, prod):
     print "ZLOG: DD: ", d
 
     return(d, rbe, pbe, xsp, ysp, xspl, yspl)
+
+
+def con2(reac, prod):
+    rPool = []
+    rlool = []
+    pPool = []
+    plool = []
+    for i in range(itin.ndimMax):
+        print "ZLOG: R DIM", i
+        mode = get_rmode()
+        tcc = runvdim(reac, mode)
+        rPool.append(cp(tcc))
+        print "ZLOG: DIM E, DIR", tcc.get_e(), sdata.ddir
+        modex = -1*get_mode(tcc, reac)*0.1
+        tccc = goptv(tcc, modex)
+        print "ZLOG: OPT E, DIR", tccc.get_e(), sdata.gdir
+        rlool.append(cp(tccc))
+
+        print "ZLOG: P DIM", i
+        mode = get_rmode()
+        tcc = runvdim(prod, mode)
+        pPool.append(cp(tcc))
+        print "ZLOG: DIM E, DIR", tcc.get_e(), sdata.ddir
+        modey = -1*get_mode(tcc, prod)*0.1
+        tccc = goptv(tcc, modey)
+        print "ZLOG: OPT E, DIR", tccc.get_e(), sdata.gdir
+        plool.append(tccc)
+
+    dcompt = []
+    for i in range(itin.ndimMax):
+        xreac = cp(rlool[i])
+        fpi = xreac.get_lfp()
+        for j in range(itin.ndimMax):
+            xprod = cp(plool[j])
+            fpj = xprod.get_lfp()
+            (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpi, fpj)
+            print "ZLOG: I %d J %d dist %8.6E" % (i, j, dist)
+            dcompt.append([dist, [i, j]])
+    dcomp = sorted(dcompt, key=lambda x: x[0])
+    print "ZLOG: shortest OPT D %8.6E" % (dcomp[0][0])
+    (ix, iy) = dcomp[0][1]
+    print "ZLOG: ix iy", ix, iy
+
+    xsp = cp(rPool[ix])
+    ysp = cp(pPool[iy])
+    xspl = cp(rlool[ix])
+    yspl = cp(plool[iy])
+    d = dcomp[0][0]
+
+    # fp1 = xsp.get_lfp()
+    # fp2 = ysp.get_lfp()
+    # (d1, m1) = fppy.fp_dist(itin.ntyp, sdata.types, fp1, fp2)
+    # print "ZLOG: CONF D: %8.6E" % (d1)
+
+    # # modex = -1*get_mode(xsp, reac)
+    # # modey = -1*get_mode(ysp, prod)
+    # modex = get_0mode()
+    # xspl = goptv(xsp, modex)
+    # print "ZLOG: XSPL, E, DIR", xspl.get_e(), sdata.gdir
+    # yspl = goptv(ysp, modex)
+    # print "ZLOG: YSPL, E, DIR", yspl.get_e(), sdata.gdir
+
+    # rbe = xsp.get_e() - reac.get_e()
+    # pbe = ysp.get_e() - reac.get_e()
+    # fpxs = xspl.get_lfp()
+    # fpys = yspl.get_lfp()
+    # (d, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpxs, fpys)
+    # print "ZLOG: DD: ", d
+
+    return(d, xsp, ysp, xspl, yspl)
 
 
 def rcon(xreac, xprod):
@@ -79,10 +153,10 @@ def rcon(xreac, xprod):
         ist += 1
         if ist > 200:
             break
-        (d, rbe, pbe, xsp, ysp, xspl, yspl) = con(xreac, xprod)
+        (d, xsp, ysp, xspl, yspl) = con2(xreac, xprod)
         xreac = cp(xspl)
         xprod = cp(yspl)
-        rc.append([d, rbe, pbe, xsp, ysp, xspl, yspl])
+        rc.append([d, xsp, ysp, xspl, yspl])
 
         dtt = []
         for i in range(len(rc)):
@@ -105,6 +179,10 @@ def rcon(xreac, xprod):
         print "ZLOG: DRP:", d, dd, rbe, pbe
         print "ZLOG: X-S-E, X-L-E, Y-S-E, Y-L-E:", \
               xsp.get_e(), xspl.get_e(), ysp.get_e(), yspl.get_e()
+        write_cell_to_vasp(xsp, "ixsp_" + str(ist) + ".vasp")
+        write_cell_to_vasp(xspl, "ixspl_" + str(ist) + ".vasp")
+        write_cell_to_vasp(ysp, "iysp_" + str(ist) + ".vasp")
+        write_cell_to_vasp(yspl, "iyspl_" + str(ist) + ".vasp")
 
     return rc
 
@@ -134,10 +212,10 @@ def main():
     for x in rc:
         i += 1
         print "ZZ# no, d, rbe, pbe", i, x[0], x[1], x[2]
-        write_cell_to_vasp(x[3], 'xsp' + str(i) + '.vasp')
-        write_cell_to_vasp(x[4], 'ysp' + str(i) + '.vasp')
-        write_cell_to_vasp(x[5], 'xspl' + str(i) + '.vasp')
-        write_cell_to_vasp(x[6], 'yspl' + str(i) + '.vasp')
+        write_cell_to_vasp(x[1], 'xsp' + str(i) + '.vasp')
+        write_cell_to_vasp(x[2], 'ysp' + str(i) + '.vasp')
+        write_cell_to_vasp(x[3], 'xspl' + str(i) + '.vasp')
+        write_cell_to_vasp(x[4], 'yspl' + str(i) + '.vasp')
 
 
 if __name__ == '__main__':

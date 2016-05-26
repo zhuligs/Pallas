@@ -4,6 +4,8 @@ import itin
 import numpy as np
 from zfunc import write_cell_to_vasp, set_cell_from_vasp
 import os
+import glob
+import sdata
 
 
 def goptv(xcell, mode):
@@ -19,7 +21,13 @@ def goptv(xcell, mode):
     os.system("sh runvasp.sh")
     e = float(os.popen("awk '/free  energy/{print $5}' OUTCAR|tail -1").read())
     pcell = set_cell_from_vasp("CONTCAR")
-    pcell.set_e(e)
+    h = itin.press * pcell.get_volume() / 1602.2 + e
+    pcell.set_e(h)
+    gdirs = glob.glob('Gdir*')
+    gdir = 'Gdir' + str(len(gdirs))
+    os.system('mkdir -p ' + gdir)
+    os.system('cp POSCAR OUTCAR CONTCAR XDATCAR ' + gdir)
+    sdata.gdir = gdir
 
     return pcell
 
@@ -39,7 +47,14 @@ def runvdim(xcell, mode):
     os.system("sh runvasp.sh")
     e = float(os.popen("awk '/free  energy/{print $5}' OUTCAR|tail -1").read())
     pcell = set_cell_from_vasp("CONTCAR")
-    pcell.set_e(e)
+    h = itin.press * pcell.get_volume() / 1602.2 + e
+    pcell.set_e(h)
+    ddirs = glob.glob('Ddir*')
+    ddir = 'Ddir' + str(len(ddirs))
+    os.system('mkdir -p ' + ddir)
+    os.system('cp POSCAR MODECAR OUTCAR XDATCAR DIMCAR ' + ddir)
+    sdata.ddir = ddir
+
     return pcell
 
 

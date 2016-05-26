@@ -40,3 +40,6 @@ ifpsox = []
 ifpsoy = []
 xlocs = []
 ylocs = []
+
+gdir = ''
+ddir = ''
