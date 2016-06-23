@@ -16,6 +16,7 @@ wvs = []
 pmodes = []
 gmodes = []
 bestdist = 1.0
+bestmdist = 100.
 gbests = []
 leader = None
 pbests = []
@@ -40,6 +41,9 @@ ifpsox = []
 ifpsoy = []
 xlocs = []
 ylocs = []
+
+vx = []
+vy = []
 
 gdir = ''
 ddir = ''

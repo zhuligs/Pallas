@@ -220,6 +220,8 @@ def initrun():
     sdata.ifpso = []
     for i in range(itin.npop):
         sdata.ifpso.append(True)
+        sdata.ifpsox.append(True)
+        sdata.ifpsoy.append(True)
     reac0 = set_cell_from_vasp('R.vasp')
     prod0 = set_cell_from_vasp('P.vasp')
     mode = get_0mode()
