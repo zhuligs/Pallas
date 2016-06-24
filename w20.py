@@ -26,12 +26,32 @@ def wo(reac, prod):
     sdata.yllist.append(prod)
     sdata.xslist.append(reac)
     sdata.yslist.append(prod)
+    # DATABASE
+    sdata.xmdb.append([[],[]]) # reac
+    sdata.ymdb.append([[],[]]) # prod
     for ip in range(itin.npop):
         (xsad, vx) = gen_rsaddle(reac)
         (ysad, vy) = gen_rsaddle(prod)
+        # update saddle point identical number
+        xid = update_iden(sdata.xslist, xsad)
+        yid = update_iden(sdata.yslist, ysad)
+        xsad.set_iden(xid)
+        ysad.set_iden(yid)
+        xsad.set_sm('S')
+        ysad.set_sm('S')
+        xsad.add_nbor(reac.get_iden())
+        ysad.add_nbor(prod.get_iden())
         gmod = get_0mode()
         xloc = gopt(xsad, gmod)
         yloc = gopt(ysad, gmod)
+        xid = update_iden(sdata.xllist, xloc)
+        yid = update_iden(sdata.yllist, yloc)
+        xloc.set_iden(xid)
+        yloc.set_iden(yid)
+        xloc.set_sm('M')
+        yloc.set_sm('M')
+        xloc.add_nbor(xsad.get_iden())
+        yloc.add_nbor(ysad.get_iden())
         print "ZLOG: INIT STEP, IP %4d X SAD EN: %8.7E, X LOC EN: %8.7E" %\
               (ip, xsad.get_e(), xloc.get_e())
         print "ZLOG: INIT STEP, IP %4d Y SAD EN: %8.7E, Y LOC EN: %8.7E" %\
@@ -53,6 +73,7 @@ def wo(reac, prod):
         sdata.pbesty.append(yloc)
     sdata.xlocs.append(Xloc)
     sdata.ylocs.append(Yloc)
+
 
     xydist = []
     for ix in range(itin.npop):
@@ -115,7 +136,8 @@ def wo(reac, prod):
             else:
                 xdist = dist
             mdist = np.log10(xdist) + ee
-            print 'ZLOG: mdist, dist, log(dist), ee', mdist, dist, np.log(dist), ee
+            print 'ZLOG: mdist, dist, log(dist), ee',\
+                  mdist, dist, np.log(dist), ee
             yxtdist.append(mdist)
         yxtdistb = sorted(yxtdist)[0]
         sdata.pdisty.append(yxtdistb)
@@ -261,6 +283,21 @@ def woo(reac, prod):
         #    break
 
 
+def update_iden(xlist, cell):
+    fpc = cell.get_lfp()
+    oldids = []
+    for x in xlist:
+        fpx = x.get_lfp()
+        idx = x.get_iden()
+        (d, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpc)
+        if d < itin.dist:
+            idc = idx
+            return idc
+        oldids.append(idx)
+    idc = max(oldids) + 1
+    return idc
+
+
 def gen_psaddle(xy, xcell, istep, ip):
     if xy is 'x':
         pbest = cp(sdata.pbestx[ip])
@@ -280,6 +317,14 @@ def gen_psaddle(xy, xcell, istep, ip):
     v = v0 * w + c1 * r1 * getx(pbest, xcell) + c2 * r2 * getx(gbest, xcell)
     scell = rundim(xcell, v)
     return (scell, v)
+
+
+def update_path():
+    # input: saddlelist, minimalist, npop, istep
+    # reactant/product minimalist[0]
+
+
+
 
 
 # def getpbest(xy, istep, ip):
