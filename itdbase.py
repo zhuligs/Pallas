@@ -20,7 +20,10 @@ class Cell:
                  stress=None,
                  e=None,
                  sfp=None,
-                 lfp=None):
+                 lfp=None,
+                 sm=None,
+                 iden=0,
+                 nbor=[]):
 
         if name is None:
             self.name = None
@@ -140,6 +143,24 @@ class Cell:
 
     def get_lfp(self):
         return self.lfp
+
+    def set_sm(self, sm):
+        self.sm = sm
+
+    def get_sm(self):
+        return self.sm
+
+    def add_nbor(self, nbor):
+        self.nbor.append(nbor)
+
+    def get_nbor(self):
+        return self.nbor
+
+    def set_iden(self, iden):
+        self.iden = iden
+
+    def get_iden(self):
+        return self.iden
 
 
 def lat2vec(lat):

@@ -233,6 +233,10 @@ def initrun():
     fpr = reac.get_lfp()
     fpp = prod.get_lfp()
     (d, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpr, fpp)
+    reac.set_sm('M')
+    prod.set_sm('M')
+    reac.set_iden(0)
+    prod.set_iden(0)
     print 'ZLOG# INIT DIST', d
     print 'ZLOG# REAC ENERGY', reac.get_e()
     print 'ZLOG# PROD ENERGY', prod.get_e()
