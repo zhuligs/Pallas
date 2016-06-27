@@ -27,8 +27,6 @@ def wo(reac, prod):
     sdata.xslist.append(reac)
     sdata.yslist.append(prod)
     # DATABASE
-    sdata.xmdb.append([[],[]]) # reac
-    sdata.ymdb.append([[],[]]) # prod
     for ip in range(itin.npop):
         (xsad, vx) = gen_rsaddle(reac)
         (ysad, vy) = gen_rsaddle(prod)
@@ -52,6 +50,8 @@ def wo(reac, prod):
         yloc.set_sm('M')
         xloc.add_nbor(xsad.get_iden())
         yloc.add_nbor(ysad.get_iden())
+        xsad.add_nobr(xloc.get_iden())
+        ysad.add_nobr(yloc.get_iden())
         print "ZLOG: INIT STEP, IP %4d X SAD EN: %8.7E, X LOC EN: %8.7E" %\
               (ip, xsad.get_e(), xloc.get_e())
         print "ZLOG: INIT STEP, IP %4d Y SAD EN: %8.7E, Y LOC EN: %8.7E" %\
@@ -173,6 +173,16 @@ def woo(reac, prod):
                 (ysad, vy) = gen_psaddle('y', yloc, istep, ip)
             else:
                 (ysad, vy) = gen_rsaddle(yloc)
+            xid = update_iden(sdata.xslist, xsad)
+            yid = update_iden(sdata.yslist, ysad)
+            xsad.set_iden(xid)
+            ysad.set_iden(yid)
+            xsad.set_sm('S')
+            ysad.set_sm('S')
+            xloc.add_nbor(xid)
+            yloc.add_nbor(yid)
+            xsad.add_nbor(xloc.get_iden())
+            ysad.add_nbor(yloc.get_iden())
             sdata.vx[ip] = cp(vx)
             sdata.vy[ip] = cp(vy)
             Xsad.append(xsad)
@@ -180,6 +190,16 @@ def woo(reac, prod):
             gmod = get_0mode()
             xxloc = gopt(xsad, gmod)
             yyloc = gopt(ysad, gmod)
+            xid = update_iden(sdata.xllist, xxloc)
+            yid = update_iden(sdata.yllist, yyloc)
+            xxloc.set_iden(xid)
+            yyloc.set_iden(yid)
+            xxloc.set_sm('M')
+            yyloc.set_sm('M')
+            xsad.add_nbor(xid)
+            ysad.add_nbor(yid)
+            xxloc.add_nbor(xsad.get_iden())
+            yyloc.add_nbor(ysad.get_iden())
             Xloc.append(xxloc)
             Yloc.append(yyloc)
             sdata.xllist.append(xxloc)
