@@ -50,8 +50,6 @@ def wo(reac, prod):
         yloc.set_sm('M')
         xloc.add_nbor(xsad.get_iden())
         yloc.add_nbor(ysad.get_iden())
-        xsad.add_nobr(xloc.get_iden())
-        ysad.add_nobr(yloc.get_iden())
         print "ZLOG: INIT STEP, IP %4d X SAD EN: %8.7E, X LOC EN: %8.7E" %\
               (ip, xsad.get_e(), xloc.get_e())
         print "ZLOG: INIT STEP, IP %4d Y SAD EN: %8.7E, Y LOC EN: %8.7E" %\
@@ -179,8 +177,6 @@ def woo(reac, prod):
             ysad.set_iden(yid)
             xsad.set_sm('S')
             ysad.set_sm('S')
-            xloc.add_nbor(xid)
-            yloc.add_nbor(yid)
             xsad.add_nbor(xloc.get_iden())
             ysad.add_nbor(yloc.get_iden())
             sdata.vx[ip] = cp(vx)
@@ -196,8 +192,6 @@ def woo(reac, prod):
             yyloc.set_iden(yid)
             xxloc.set_sm('M')
             yyloc.set_sm('M')
-            xsad.add_nbor(xid)
-            ysad.add_nbor(yid)
             xxloc.add_nbor(xsad.get_iden())
             yyloc.add_nbor(ysad.get_iden())
             Xloc.append(xxloc)
@@ -339,9 +333,37 @@ def gen_psaddle(xy, xcell, istep, ip):
     return (scell, v)
 
 
-def update_path():
+def connect_path(mlist, slist, xm, xend):
     # input: saddlelist, minimalist, npop, istep
     # reactant/product minimalist[0]
+    # xend : the end point, either product or reactant
+    # find the first neighbor saddle for xend
+
+    # MERGE mlist and slist
+    mlisted = mergelr(mlist)
+    slisted = mergelr(mlist)
+
+    snode0 = []
+    snode0id = []
+    for xs in slist:
+        if 0 in xs.get_nbor():
+            snode0.append(xs)
+            snode0id.append(xs.get_iden())
+
+    for sp_id in xm.get_left():
+        sp = getx_fromid(sp_id, slisted)
+        for m_id in sp.get_left():
+            if m_id == 0:
+                pass
+                # connect the xend
+            mp = getx_fromid(m_id, mlisted)
+            for sp_id1 in mp.get_left():
+                pass
+                # ...
+
+
+
+
 
 
 

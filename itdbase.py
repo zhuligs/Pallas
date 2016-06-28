@@ -1,4 +1,5 @@
 #!/usr/bin/python
+
 import numpy as np
 import math
 import fppy
@@ -23,7 +24,8 @@ class Cell:
                  lfp=None,
                  sm=None,
                  iden=0,
-                 nbor=[]):
+                 left=[],
+                 right=[]):
 
         if name is None:
             self.name = None
@@ -150,11 +152,17 @@ class Cell:
     def get_sm(self):
         return self.sm
 
-    def add_nbor(self, nbor):
-        self.nbor.append(nbor)
+    def add_left(self, left):
+        self.nbor.append(left)
 
-    def get_nbor(self):
-        return self.nbor
+    def get_left(self):
+        return self.left
+
+    def add_right(self, right):
+        self.right.append(right)
+
+    def get_right(self):
+        return self.right
 
     def set_iden(self, iden):
         self.iden = iden
