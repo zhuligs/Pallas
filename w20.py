@@ -333,39 +333,64 @@ def gen_psaddle(xy, xcell, istep, ip):
     return (scell, v)
 
 
-def connect_path(mlist, slist, xm, xend):
+def connect_path(mlisted, slisted, xm, xend):
     # input: saddlelist, minimalist, npop, istep
     # reactant/product minimalist[0]
     # xend : the end point, either product or reactant
     # find the first neighbor saddle for xend
 
     # MERGE mlist and slist
-    mlisted = mergelr(mlist)
-    slisted = mergelr(mlist)
+    #mlisted = mergelr(mlist)
+    #slisted = mergelr(mlist)
 
-    snode0 = []
-    snode0id = []
-    for xs in slist:
-        if 0 in xs.get_nbor():
-            snode0.append(xs)
-            snode0id.append(xs.get_iden())
+    #snode0 = []
+    #snode0id = []
+    #for xs in slist:
+    #    if 0 in xs.get_nbor():
+    #        snode0.append(xs)
+    #        snode0id.append(xs.get_iden())
 
+    K = 0
     for sp_id in xm.get_left():
         sp = getx_fromid(sp_id, slisted)
+        K += 1
+        print '# ZLOG: Da K ', K
         for m_id in sp.get_left():
             if m_id == 0:
-                pass
                 # connect the xend
-            mp = getx_fromid(m_id, mlisted)
-            for sp_id1 in mp.get_left():
-                pass
-                # ...
+                print '# ZLOG: CONNECTED MID', m_id
+            else:
+                print '# ZLOG: SON ID', m_id
+                mp = getx_fromid(m_id, mlisted)
+                connect_path(mlisted, slisted, mp, xend)
+    return 0
 
 
+def getx_fromid(xid, listed):
+    for xterm in listed:
+        if xterm.get_iden() == xid:
+            return xterm
+        else:
+            print 'ERROR: getx_fromid', xid
+            exit(1)
 
 
+def mergelist(xlist):
+    xid = []
+    for xc in xlist:
+        xid.append(xc.get_iden())
 
-
+    for idt in set(xid):
+        simit = []
+        lt = []
+        rt = []
+        for xc in xlist:
+            if xc.get_iden == idt:
+                simit.append(xc)
+                lt += xc.get_left()
+                rt += xc.get_right()
+        ltt = list(set(lt))
+        rtt = list(set(rt))
 
 
 
