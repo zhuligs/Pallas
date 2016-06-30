@@ -3,6 +3,7 @@
 import numpy as np
 import math
 import fppy
+from copy import deepcopy as cp
 
 
 class Cell:
@@ -23,9 +24,9 @@ class Cell:
                  sfp=None,
                  lfp=None,
                  sm=None,
-                 iden=0,
-                 left=[],
-                 right=[]):
+                 iden=None,
+                 left=None,
+                 right=None):
 
         if name is None:
             self.name = None
@@ -47,6 +48,10 @@ class Cell:
         else:
             self.positions = np.array(positions)
 
+        self.iden = 0
+        self.left = []
+        self.right = []
+
     def set_name(self, name):
         self.name = str(name)
 
@@ -59,7 +64,7 @@ class Cell:
         self.lattice = np.array(newlat)
 
     def get_lattice(self):
-        return self.lattice
+        return self.lattice.copy()
 
     def set_znucl(self, znucl):
         self.znucl = np.array(znucl)
@@ -71,7 +76,7 @@ class Cell:
         self.types = np.array(types, int)
 
     def get_types(self):
-        return self.types
+        return self.types.copy()
 
     def set_e(self, e):
         self.e = float(e)
@@ -92,19 +97,19 @@ class Cell:
         self.positions = np.dot(rxyz, np.linalg.inv(self.lattice))
 
     def get_positions(self):
-        return self.positions
+        return self.positions.copy()
 
     def get_cart_positions(self):
-        return self.cart_positions
+        return self.cart_positions.copy()
 
     def set_typt(self, typ):
         self.typt = np.array(typ)
 
     def get_typt(self):
-        return self.typt
+        return self.typt.copy()
 
     def set_symbols(self, symb):
-        self.symbols = symb
+        self.symbols = cp(symb)
 
     def get_symbols(self):
         return self.symbols
@@ -113,7 +118,7 @@ class Cell:
         self.latv = np.array(v)
 
     def get_latv(self):
-        return self.latv
+        return self.latv.copy()
 
     def set_atomv(self, v):
         self.atomv = np.array(v)
@@ -128,7 +133,7 @@ class Cell:
         self.stress = np.array(stres)
 
     def get_stress(self):
-        return self.stress
+        return self.stress.copy()
 
     def cal_fp(self, cutoff, lmax, natx=300):
         lat = self.lattice
@@ -141,10 +146,10 @@ class Cell:
         self.lfp = np.array(lfp)
 
     def get_sfp(self):
-        return self.sfp
+        return self.sfp.copy()
 
     def get_lfp(self):
-        return self.lfp
+        return self.lfp.copy()
 
     def set_sm(self, sm):
         self.sm = sm
@@ -153,16 +158,22 @@ class Cell:
         return self.sm
 
     def add_left(self, left):
-        self.nbor.append(left)
+        self.left.append(left)
+
+    def set_left(self, leftlist):
+        self.left = cp(leftlist)
 
     def get_left(self):
-        return self.left
+        return cp(self.left)
 
     def add_right(self, right):
         self.right.append(right)
 
+    def set_right(self, rightlist):
+        self.right = cp(rightlist)
+
     def get_right(self):
-        return self.right
+        return cp(self.right)
 
     def set_iden(self, iden):
         self.iden = iden

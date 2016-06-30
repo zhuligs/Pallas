@@ -4,6 +4,7 @@
 import sys
 from copy import deepcopy as cp
 import numpy as np
+import cPickle as pick
 
 import itin
 import sdata
@@ -12,6 +13,7 @@ from wrapdimer import get_mode, get_0mode, get_rmode
 from zfunc import gopt, rundim, set_cell_from_vasp, write_cell_to_vasp, getx
 from w2 import gen_rsaddle, initrun
 
+sys.setrecursionlimit(100000)
 
 def wo(reac, prod):
     reace = reac.get_e()
@@ -22,6 +24,8 @@ def wo(reac, prod):
     Ysad = []
     Xen = []
     Yen = []
+    reac.add_left(-1)
+    prod.add_left(-1)
     sdata.xllist.append(reac)
     sdata.yllist.append(prod)
     sdata.xslist.append(reac)
@@ -37,8 +41,10 @@ def wo(reac, prod):
         ysad.set_iden(yid)
         xsad.set_sm('S')
         ysad.set_sm('S')
-        xsad.add_nbor(reac.get_iden())
-        ysad.add_nbor(prod.get_iden())
+        xsad.add_left(reac.get_iden())
+        ysad.add_left(prod.get_iden())
+        reac.add_right(xid)
+        prod.add_right(yid)
         gmod = get_0mode()
         xloc = gopt(xsad, gmod)
         yloc = gopt(ysad, gmod)
@@ -48,8 +54,10 @@ def wo(reac, prod):
         yloc.set_iden(yid)
         xloc.set_sm('M')
         yloc.set_sm('M')
-        xloc.add_nbor(xsad.get_iden())
-        yloc.add_nbor(ysad.get_iden())
+        xloc.add_left(xsad.get_iden())
+        yloc.add_left(ysad.get_iden())
+        xsad.add_right(xid)
+        ysad.add_right(yid)
         print "ZLOG: INIT STEP, IP %4d X SAD EN: %8.7E, X LOC EN: %8.7E" %\
               (ip, xsad.get_e(), xloc.get_e())
         print "ZLOG: INIT STEP, IP %4d Y SAD EN: %8.7E, Y LOC EN: %8.7E" %\
@@ -175,10 +183,12 @@ def woo(reac, prod):
             yid = update_iden(sdata.yslist, ysad)
             xsad.set_iden(xid)
             ysad.set_iden(yid)
+            xloc.add_right(xid)
+            yloc.add_right(yid)
             xsad.set_sm('S')
             ysad.set_sm('S')
-            xsad.add_nbor(xloc.get_iden())
-            ysad.add_nbor(yloc.get_iden())
+            xsad.add_left(xloc.get_iden())
+            ysad.add_left(yloc.get_iden())
             sdata.vx[ip] = cp(vx)
             sdata.vy[ip] = cp(vy)
             Xsad.append(xsad)
@@ -192,8 +202,10 @@ def woo(reac, prod):
             yyloc.set_iden(yid)
             xxloc.set_sm('M')
             yyloc.set_sm('M')
-            xxloc.add_nbor(xsad.get_iden())
-            yyloc.add_nbor(ysad.get_iden())
+            xxloc.add_left(xsad.get_iden())
+            yyloc.add_left(ysad.get_iden())
+            xsad.add_right(xid)
+            ysad.add_right(yid)
             Xloc.append(xxloc)
             Yloc.append(yyloc)
             sdata.xllist.append(xxloc)
@@ -333,7 +345,7 @@ def gen_psaddle(xy, xcell, istep, ip):
     return (scell, v)
 
 
-def connect_path(mlisted, slisted, xm, xend):
+def connect_path(mlisted, slisted, xm, xend, fatherid):
     # input: saddlelist, minimalist, npop, istep
     # reactant/product minimalist[0]
     # xend : the end point, either product or reactant
@@ -351,18 +363,25 @@ def connect_path(mlisted, slisted, xm, xend):
     #        snode0id.append(xs.get_iden())
 
     K = 0
+    print 'm left', xm.get_left()
     for sp_id in xm.get_left():
-        sp = getx_fromid(sp_id, slisted)
-        K += 1
-        print '# ZLOG: Da K ', K
-        for m_id in sp.get_left():
-            if m_id == 0:
-                # connect the xend
-                print '# ZLOG: CONNECTED MID', m_id
-            else:
-                print '# ZLOG: SON ID', m_id
-                mp = getx_fromid(m_id, mlisted)
-                connect_path(mlisted, slisted, mp, xend)
+        if sp_id == fatherid:
+            print 'identical father sp id', sp_id
+        else:
+            sp = getx_fromid(sp_id, slisted)
+            K += 1
+            print '# ZLOG: Da K ', K, sp.get_e()
+            print 's left', sp.get_left()
+            print 's right', sp.get_right()
+            for m_id in sp.get_left():
+                if True: # m_id not in sp.get_right():
+                    if m_id == 0:
+                        # connect the xend
+                        print '# ZLOG: CONNECTED MID', m_id
+                    else:
+                        print '# ZLOG: SON ID', m_id
+                        mp = getx_fromid(m_id, mlisted)
+                        connect_path(mlisted, slisted, mp, xend, sp_id)
     return 0
 
 
@@ -370,28 +389,41 @@ def getx_fromid(xid, listed):
     for xterm in listed:
         if xterm.get_iden() == xid:
             return xterm
-        else:
-            print 'ERROR: getx_fromid', xid
-            exit(1)
+    print 'ERROR: getx_fromid', xid
+    exit(1)
 
 
 def mergelist(xlist):
+    xlisted = []
     xid = []
     for xc in xlist:
         xid.append(xc.get_iden())
 
+    print 'set(xid)', set(xid)
     for idt in set(xid):
         simit = []
         lt = []
         rt = []
         for xc in xlist:
-            if xc.get_iden == idt:
+            # print xc.get_iden()
+            if xc.get_iden() == idt:
                 simit.append(xc)
                 lt += xc.get_left()
                 rt += xc.get_right()
+                xt = cp(xc)
         ltt = list(set(lt))
         rtt = list(set(rt))
-
+        #nltt = []
+        #if len(ltt) > 1:
+        #    for i in ltt:
+        #        if i not in rtt:
+        #            nltt.append(i)
+        #else:
+        #    nltt = ltt[:]
+        xt.set_left(ltt)
+        xt.set_right(rtt)
+        xlisted.append(xt)
+    return xlisted
 
 
 # def getpbest(xy, istep, ip):
@@ -429,11 +461,45 @@ def write_de(xyldist, e0):
 def main():
     (reac, prod) = initrun()
     woo(reac, prod)
+    f = open('xm.dat', 'w')
+    pick.dump(sdata.xllist, f)
+    f.close()
+    f = open('xs.dat', 'w')
+    pick.dump(sdata.xslist, f)
+    f.close()
+    f = open('ym.dat', 'w')
+    pick.dump(sdata.yllist, f)
+    f.close()
+    f = open('ys.dat', 'w')
+    pick.dump(sdata.yslist, f)
+    f.close()
     # outputw()
 
 
+def utest1():
+    f = open('xm.dat')
+    xmlist = pick.load(f)
+    f.close()
+    f = open('xs.dat')
+    xslist = pick.load(f)
+    f.close()
+    xmlisted = mergelist(xmlist)
+    xslisted = mergelist(xslist)
+    print 'nxmlist, nxmlisted', len(xmlist), len(xmlisted)
+    print 'nxslist, nsmlisted', len(xslist), len(xslisted)
+    xend = cp(xmlist[0])
+    xm = cp(xmlist[-3])
+    print xm.get_iden()
+    connect_path(xmlisted, xslisted, xm, xend, 1000)
+    xxx = getx_fromid(45, xmlisted)
+    print xxx.get_left()
+    print xxx.get_right()
+
+
+
 if __name__ == "__main__":
-    main()
+    # main()
+    utest1()
 
 
 
