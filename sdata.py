@@ -52,3 +52,5 @@ xmdb = []  # minima database from x side
 xsdb = []  # saddle points database from x side
 ymdb = []  # minima database from y side
 ysdb = []  # saddle points database from y side
+
+nidp = 0

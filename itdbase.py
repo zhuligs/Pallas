@@ -25,6 +25,7 @@ class Cell:
                  lfp=None,
                  sm=None,
                  iden=None,
+                 nid=None,
                  left=None,
                  right=None):
 
@@ -49,6 +50,7 @@ class Cell:
             self.positions = np.array(positions)
 
         self.iden = 0
+        self.nid = 0
         self.left = []
         self.right = []
 
@@ -180,6 +182,12 @@ class Cell:
 
     def get_iden(self):
         return self.iden
+
+    def set_nid(self, nid):
+        self.nid = nid
+
+    def get_nid(self):
+        return self.nid
 
 
 def lat2vec(lat):
