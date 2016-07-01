@@ -6,6 +6,8 @@ from copy import deepcopy as cp
 import numpy as np
 import cPickle as pick
 
+from treelib import Node, Tree
+
 import itin
 import sdata
 import fppy
@@ -345,7 +347,7 @@ def gen_psaddle(xy, xcell, istep, ip):
     return (scell, v)
 
 
-def connect_path(mlisted, slisted, xm, xend, fatherid):
+def connect_path(mlisted, slisted, xm, xend, fatherids, xpath):
     # input: saddlelist, minimalist, npop, istep
     # reactant/product minimalist[0]
     # xend : the end point, either product or reactant
@@ -362,33 +364,33 @@ def connect_path(mlisted, slisted, xm, xend, fatherid):
     #        snode0.append(xs)
     #        snode0id.append(xs.get_iden())
 
-    K = 0
-    print 'm left', xm.get_left()
+    # print 'm left', xm.get_left()
+
     for sp_id in xm.get_left():
-        if sp_id == fatherid:
-            print 'identical father sp id', sp_id
-        else:
+        if sp_id not in fatherids:
+            fatherids.append(sp_id)
             sp = getx_fromid(sp_id, slisted)
-            K += 1
-            print '# ZLOG: Da K ', K, sp.get_e()
-            print 's left', sp.get_left()
-            print 's right', sp.get_right()
+            xpath.create_node(sp, sp.get_nid(), parent=xm.get_nid())
             for m_id in sp.get_left():
-                if True: # m_id not in sp.get_right():
-                    if m_id == 0:
-                        # connect the xend
-                        print '# ZLOG: CONNECTED MID', m_id
-                    else:
-                        print '# ZLOG: SON ID', m_id
-                        mp = getx_fromid(m_id, mlisted)
-                        connect_path(mlisted, slisted, mp, xend, sp_id)
+                if m_id == 0:
+                    # connect the xend
+                    xend.set_nid(xend.get_nid()-1)
+                    xpath.create_node(xend, xend.get_nid(), parent=sp.get_nid())
+                    print '# ZLOG: CONNECTED MID', m_id
+                else:
+                    # print '# ZLOG: SON ID', m_id
+                    mp = getx_fromid(m_id, mlisted)
+                    xpath.create_node(mp, mp.get_nid(), parent=sp.get_nid())
+                    connect_path(mlisted, slisted, mp, xend, fatherids, xpath)
     return 0
 
 
 def getx_fromid(xid, listed):
     for xterm in listed:
         if xterm.get_iden() == xid:
-            return xterm
+            sdata.nidp += 1
+            xterm.set_nid(sdata.nidp)
+            return cp(xterm)
     print 'ERROR: getx_fromid', xid
     exit(1)
 
@@ -488,12 +490,45 @@ def utest1():
     print 'nxmlist, nxmlisted', len(xmlist), len(xmlisted)
     print 'nxslist, nsmlisted', len(xslist), len(xslisted)
     xend = cp(xmlist[0])
-    xm = cp(xmlist[-3])
+    xm = cp(xmlist[-5])
     print xm.get_iden()
-    connect_path(xmlisted, xslisted, xm, xend, 1000)
-    xxx = getx_fromid(45, xmlisted)
-    print xxx.get_left()
-    print xxx.get_right()
+    fatherids = []
+    xpath = Tree()
+    xm.set_nid(0)
+    xpath.create_node(xm, 0)
+    xpath.show()
+    sdata.nidp = 0
+    xend.set_nid(-1)
+    connect_path(xmlisted, xslisted, xm, xend, fatherids, xpath)
+    xpath.show()
+
+    dd = []
+    for xxx in xpath.all_nodes():
+        if xxx.identifier < 0:
+            print 'WA'
+            d = []
+            d.append(xxx.tag)
+            nid = xxx.bpointer
+            xx = xpath.get_node(nid)
+            while True:
+                d.append(xx.tag)
+                if xx.is_root(): break
+                nid = xx.bpointer
+                xx = xpath.get_node(nid)
+            dd.append(d)
+
+    print len(dd)
+
+    for x in dd:
+        print 'EE',
+        ee = []
+        for xx in x:
+            print xx.get_e() - xend.get_e(),
+            ee.append(xx.get_e() - xend.get_e())
+        print
+        print max(ee)
+
+
 
 
 
