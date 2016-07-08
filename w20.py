@@ -347,7 +347,7 @@ def gen_psaddle(xy, xcell, istep, ip):
     return (scell, v)
 
 
-def connect_path(mlisted, slisted, xm, xend, fatherids, xpath):
+def connect_path(ine, mlisted, slisted, xm, xend, fatherids, xpath):
     # input: saddlelist, minimalist, npop, istep
     # reactant/product minimalist[0]
     # xend : the end point, either product or reactant
@@ -367,21 +367,23 @@ def connect_path(mlisted, slisted, xm, xend, fatherids, xpath):
     # print 'm left', xm.get_left()
 
     for sp_id in xm.get_left():
-        if sp_id not in fatherids:
+        if sp_id not in fatherids and sp_id > -1:
             fatherids.append(sp_id)
             sp = getx_fromid(sp_id, slisted)
-            xpath.create_node(sp, sp.get_nid(), parent=xm.get_nid())
+            e = sp.get_e() - ine
+            xpath.create_node('Saddle'+str(sp.get_iden())+'E'+str(e), sp.get_nid(), parent=xm.get_nid(), data=sp)
             for m_id in sp.get_left():
                 if m_id == 0:
                     # connect the xend
                     xend.set_nid(xend.get_nid()-1)
-                    xpath.create_node(xend, xend.get_nid(), parent=sp.get_nid())
-                    print '# ZLOG: CONNECTED MID', m_id
+                    xpath.create_node('END', xend.get_nid(), parent=sp.get_nid(), data=xend)
+                    # print '# ZLOG: CONNECTED MID', m_id
                 else:
                     # print '# ZLOG: SON ID', m_id
                     mp = getx_fromid(m_id, mlisted)
-                    xpath.create_node(mp, mp.get_nid(), parent=sp.get_nid())
-                    connect_path(mlisted, slisted, mp, xend, fatherids, xpath)
+                    e = mp.get_e() - ine
+                    xpath.create_node('Minima' + str(mp.get_iden())+'E'+str(e), mp.get_nid(), parent=sp.get_nid(), data=mp)
+                    connect_path(ine, mlisted, slisted, mp, xend, fatherids, xpath)
     return 0
 
 
@@ -490,12 +492,12 @@ def utest1():
     print 'nxmlist, nxmlisted', len(xmlist), len(xmlisted)
     print 'nxslist, nsmlisted', len(xslist), len(xslisted)
     xend = cp(xmlist[0])
-    xm = cp(xmlist[-5])
+    xm = cp(xmlist[-3])
     print xm.get_iden()
     fatherids = []
     xpath = Tree()
     xm.set_nid(0)
-    xpath.create_node(xm, 0)
+    xpath.create_node('Minima' + str(xm.get_iden()), 0, data=xm)
     xpath.show()
     sdata.nidp = 0
     xend.set_nid(-1)
@@ -507,11 +509,11 @@ def utest1():
         if xxx.identifier < 0:
             print 'WA'
             d = []
-            d.append(xxx.tag)
+            d.append(xxx.data)
             nid = xxx.bpointer
             xx = xpath.get_node(nid)
             while True:
-                d.append(xx.tag)
+                d.append(xx.data)
                 if xx.is_root(): break
                 nid = xx.bpointer
                 xx = xpath.get_node(nid)
@@ -529,12 +531,158 @@ def utest1():
         print max(ee)
 
 
+def utest2():
+    f = open('xm.dat')
+    xmlist = pick.load(f)
+    f.close()
+    f = open('xs.dat')
+    xslist = pick.load(f)
+    f.close()
+    f = open('ym.dat')
+    ymlist = pick.load(f)
+    f.close()
+    f = open('ys.dat')
+    yslist = pick.load(f)
+    f.close()
+
+    xmlisted = mergelist(xmlist)
+    xslisted = mergelist(xslist)
+    ymlisted = mergelist(ymlist)
+    yslisted = mergelist(yslist)
+
+    xend = cp(xmlist[0])
+    # print 'xend', xend.get_e()
+    yend = cp(ymlist[0])
+
+    sdata.types = xend.get_types()
+
+    goodlist = []
+    for xx in xmlist:
+        fpx = xx.get_lfp()
+        for yy in ymlist:
+            fpy = yy.get_lfp()
+            (d, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
+            if d < itin.dist:
+                print 'dd', d
+                goodlist.append([xx, yy])
+                print xx.get_iden(), yy.get_iden()
+
+    print 'len', len(goodlist)
+    # sys.exit(1)
+    # kk = 0
+    # for i in range(len(goodlist)):
+    #     print kk
+    #     kk += 1
+    #     # print goodlist[i]
+    # sys.exit(1)
+
+    ine= xend.get_e()
+
+    xend.set_nid(-1)
+    yend.set_nid(-1)
+    kk = 0
+    mxy = []
+    for xyxy in goodlist:
+        print 'kk', kk
+        kk += 1
+        xx = xyxy[0]
+        yy = xyxy[1]
+        print 'xx, yy', xx.get_iden(), yy.get_iden()
+        if xx.get_iden() > 0:
+            xpath = Tree()
+            fatherids = []
+            xx.set_nid(0)
+            xpath.create_node('Minima'+str(xx.get_iden()), 0, data=xx)
+            sdata.nidp = 0
+            connect_path(ine, xmlisted, xslisted, xx, xend, fatherids, xpath)
+
+        if yy.get_iden() > 0:
+            ypath = Tree()
+            fatherids = []
+            yy.set_nid(0)
+            ypath.create_node('Minima'+str(yy.get_iden()), 0, data=yy)
+            sdata.nidp = 0
+            connect_path(ine, ymlisted, yslisted, yy, yend, fatherids, ypath)
+
+        if xx.get_iden() > 0:
+            dd =[]
+            for xxx in xpath.all_nodes():
+                if xxx.identifier < 0:
+                    d = []
+                    d.append(xxx.data)
+                    nid = xxx.bpointer
+                    nxx = xpath.get_node(nid)
+                    while True:
+                        d.append(nxx.data)
+                        if nxx.is_root(): break
+                        nid = nxx.bpointer
+                        nxx = xpath.get_node(nid)
+                    dd.append(d)
+            xe = []
+            for x in dd:
+                ee = []
+                for dx in x:
+                    exx = dx.get_e() - xend.get_e()
+                    ee.append(exx)
+                xe.append(max(ee))
+            mxe = min(xe)
+        else:
+            mxe = 0.0
+
+        if yy.get_iden() > 0:
+            dd = []
+            for yyy in ypath.all_nodes():
+                if yyy.identifier < 0:
+                    d = []
+                    d.append(yyy.data)
+                    nid = yyy.bpointer
+                    nyy = ypath.get_node(nid)
+                    while True:
+                        d.append(nyy.data)
+                        if nyy.is_root(): break
+                        nid = nyy.bpointer
+                        nyy = ypath.get_node(nid)
+                    dd.append(d)
+            ye = []
+            for y in dd:
+                ee = []
+                for dy in y:
+                    exx = dy.get_e() - xend.get_e()
+                    ee.append(exx)
+                ye.append(max(ee))
+            mye = min(ye)
+        else:
+            mye = 0.0
+
+        print 'BAR', max(mxe, mye), mxe, mye
+        mxy.append([max(mxe, mye), xx, yy])
+
+    mxysort = sorted(mxy, key=lambda x:x[0])
+    print mxysort[0][0]
+    print mxysort[0][1].get_iden()
+    print mxysort[0][2].get_iden()
+
+    goodx = cp(mxysort[0][1])
+    idenx = goodx.get_iden()
+    fatherids = []
+    xpath = Tree()
+    goodx.set_nid(0)
+    xpath.create_node('Minima' + str(goodx.get_iden()), 0, data=goodx)
+    xpath.show()
+    sdata.nidp = 0
+    xend.set_nid(-1)
+    connect_path(ine, xmlisted, xslisted, goodx, xend, fatherids, xpath)
+    xpath.show()
+    xpath.save2file('xp.dat')
+
+
+
 
 
 
 if __name__ == "__main__":
     # main()
-    utest1()
+    utest2()
 
 
 
