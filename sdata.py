@@ -54,3 +54,5 @@ ymdb = []  # minima database from y side
 ysdb = []  # saddle points database from y side
 
 nidp = 0
+reace = 0.0
+

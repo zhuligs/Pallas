@@ -237,6 +237,7 @@ def initrun():
     prod.set_sm('M')
     reac.set_iden(0)
     prod.set_iden(0)
+    sdata.reace = reac.get_e()
     print 'ZLOG# INIT DIST', d
     print 'ZLOG# REAC ENERGY', reac.get_e()
     print 'ZLOG# PROD ENERGY', prod.get_e()

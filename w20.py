@@ -82,14 +82,15 @@ def wo(reac, prod):
     sdata.xlocs.append(Xloc)
     sdata.ylocs.append(Yloc)
 
-
     xydist = []
     for ix in range(itin.npop):
         fpx = Xloc[ix].get_lfp()
-        ex = Xsad[ix].get_e() - reace
+        # ex = Xsad[ix].get_e() - reace
+        ex = get_barrier(sdata.xllist, sdata.xslist, reac, Xloc[ix])
         for iy in range(itin.npop):
             fpy = Yloc[iy].get_lfp()
-            ey = Ysad[iy].get_e() - reace
+            # ey = Ysad[iy].get_e() - reace
+            ey = get_barrier(sdata.yllist, sdata.yslist, prod, Yloc[iy])
             ee = max(ex, ey)
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
             # mdist for multiobjective opt
@@ -98,7 +99,8 @@ def wo(reac, prod):
             else:
                 xdist = dist
             mdist = np.log10(xdist) + ee
-            print 'ZLOG: mdist, dist, log(dist), ee', mdist, dist, np.log(dist), ee
+            print 'ZLOG: mdist, dist, log(dist), ee',\
+                  mdist, dist, np.log(dist), ee
             xydist.append((mdist, (ix, iy), dist, ee))
     xydistSort = sorted(xydist,  key=lambda x: x[0])
     sdata.bestdist = xydistSort[0][2]
@@ -113,18 +115,22 @@ def wo(reac, prod):
     for ix in range(itin.npop):
         xytdist = []
         fpx = Xloc[ix].get_lfp()
-        ex = Xsad[ix].get_e() - reace
+        # ex = Xsad[ix].get_e() - reace
+        ex = get_barrier(sdata.xllist, sdata.xslist, reac, Xloc[ix])
         for iy in range(len(sdata.yllist)):
             fpy = sdata.yllist[iy].get_lfp()
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
-            ey = sdata.yslist[iy].get_e() - reace
+            # ey = sdata.yslist[iy].get_e() - reace
+            ey = get_barrier(sdata.yllist, sdata.yslist, prod,
+                             sdata.yllist[iy])
             ee = max(ex, ey)
             if dist < 1e-4:
                 xdist = 1e-4
             else:
                 xdist = dist
             mdist = np.log10(xdist) + ee
-            print 'ZLOG: mdist, dist, log(dist), ee', mdist, dist, np.log(dist), ee
+            print 'ZLOG: mdist, dist, log(dist), ee',\
+                  mdist, dist, np.log(dist), ee
             xytdist.append(mdist)
         xytdistb = sorted(xytdist)[0]
         sdata.pdistx.append(xytdistb)
@@ -133,11 +139,14 @@ def wo(reac, prod):
     for iy in range(itin.npop):
         yxtdist = []
         fpy = Yloc[iy].get_lfp()
-        ey = Ysad[iy].get_e() - reace
+        # ey = Ysad[iy].get_e() - reace
+        ey = get_barrier(sdata.yllist, sdata.yslist, prod, Yloc[iy])
         for ix in range(len(sdata.xllist)):
             fpx = sdata.xllist[ix].get_lfp()
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
-            ex = sdata.xslist[ix].get_e() - reace
+            # ex = sdata.xslist[ix].get_e() - reace
+            ex = get_barrier(sdata.xllist, sdata.xslist, reac,
+                             sdata.xllist[ix])
             ee = max(ex, ey)
             if dist < 1e-4:
                 xdist = 1e-4
@@ -223,18 +232,23 @@ def woo(reac, prod):
         xyldist = []
         for ix in range(len(sdata.xllist)):
             fpx = sdata.xllist[ix].get_lfp()
-            ex = sdata.xslist[ix].get_e() - reace
+            # ex = sdata.xslist[ix].get_e() - reace
+            ex = get_barrier(sdata.xllist, sdata.xslist, reac,
+                             sdata.xllist[ix])
             for iy in range(len(sdata.yllist)):
                 fpy = sdata.yllist[iy].get_lfp()
                 (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
-                ey = sdata.yslist[iy].get_e() - reace
+                # ey = sdata.yslist[iy].get_e() - reace
+                ey = get_barrier(sdata.yllist, sdata.yslist, prod,
+                                 sdata.yllist[iy])
                 ee = max(ex, ey)
                 if dist < 1e-4:
                     xdist = 1e-4
                 else:
                     xdist = dist
                 mdist = np.log10(xdist) + ee
-                print 'ZLOG: mdist, dist, log(dist), ee', mdist, dist, np.log(dist), ee
+                print 'ZLOG: mdist, dist, log(dist), ee',\
+                      mdist, dist, np.log(dist), ee
                 xyldist.append([mdist, [ix, iy], dist, ee])
         xyldistSort = sorted(xyldist, key=lambda x: x[0])
         ix = xyldistSort[0][1][0]
@@ -256,19 +270,23 @@ def woo(reac, prod):
         xydist = []
         for ix in range(itin.npop):
             fpx = Xloc[ix].get_lfp()
-            ex = Xsad[ix].get_e() - reace
+            # ex = Xsad[ix].get_e() - reace
+            ex = get_barrier(sdata.xllist, sdata.xslist, reac, Xloc[ix])
             xytdist = []
             for iy in range(len(sdata.yllist)):
                 fpy = sdata.yllist[iy].get_lfp()
                 (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
-                ey = sdata.yslist[iy].get_e() - reace
+                # ey = sdata.yslist[iy].get_e() - reace
+                ey = get_barrier(sdata.yllist, sdata.yslist, prod,
+                                 sdata.yllist[iy])
                 ee = max(ex, ey)
                 if dist < 1e-4:
                     xdist = 1e-4
                 else:
                     xdist = dist
                 mdist = np.log10(xdist) + ee
-                print 'ZLOG: mdist, dist, log(dist), ee', mdist, dist, np.log(dist), ee
+                print 'ZLOG: mdist, dist, log(dist), ee',\
+                      mdist, dist, np.log(dist), ee
                 xytdist.append([mdist, iy])
             xytdistSort = sorted(xytdist, key=lambda x: x[0])
             xytbestdist = xytdistSort[0][0]
@@ -282,19 +300,23 @@ def woo(reac, prod):
         yxdist = []
         for iy in range(itin.npop):
             fpy = Yloc[iy].get_lfp()
-            ey = Ysad[iy].get_e() - reace
+            # ey = Ysad[iy].get_e() - reace
+            ey = get_barrier(sdata.yllist, sdata.yslist, prod, Yloc[iy])
             yxtdist = []
             for ix in range(len(sdata.xllist)):
                 fpx = sdata.xllist[ix].get_lfp()
                 (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
-                ex = sdata.xslist[ix].get_e() - reace
+                # ex = sdata.xslist[ix].get_e() - reace
+                ex = get_barrier(sdata.xllist, sdata.xslist, reac,
+                                 sdata.xllist[ix])
                 ee = max(ex, ey)
                 if dist < 1e-4:
                     xdist = 1e-4
                 else:
                     xdist = dist
                 mdist = np.log10(xdist) + ee
-                print 'ZLOG: mdist, dist, log(dist), ee', mdist, dist, np.log(dist), ee
+                print 'ZLOG: mdist, dist, log(dist), ee',\
+                      mdist, dist, np.log(dist), ee
                 yxtdist.append([mdist, ix])
             yxtdistSort = sorted(yxtdist, key=lambda x: x[0])
             yxtbestdist = yxtdistSort[0][0]
@@ -306,9 +328,9 @@ def woo(reac, prod):
         sdata.xlocs.append(Xloc)
         sdata.ylocs.append(Yloc)
 
-        #if abs(bestdist) < itin.dist:
-        #    print "ZLOG: CONVERGED!"
-        #    break
+        # if abs(bestdist) < itin.dist:
+        #     print "ZLOG: CONVERGED!"
+        #     break
 
 
 def update_iden(xlist, cell):
@@ -354,12 +376,12 @@ def connect_path(ine, mlisted, slisted, xm, xend, fatherids, xpath):
     # find the first neighbor saddle for xend
 
     # MERGE mlist and slist
-    #mlisted = mergelr(mlist)
-    #slisted = mergelr(mlist)
+    # mlisted = mergelr(mlist)
+    # slisted = mergelr(mlist)
 
-    #snode0 = []
-    #snode0id = []
-    #for xs in slist:
+    # snode0 = []
+    # snode0id = []
+    # for xs in slist:
     #    if 0 in xs.get_nbor():
     #        snode0.append(xs)
     #        snode0id.append(xs.get_iden())
@@ -371,18 +393,21 @@ def connect_path(ine, mlisted, slisted, xm, xend, fatherids, xpath):
             fatherids.append(sp_id)
             sp = getx_fromid(sp_id, slisted)
             e = sp.get_e() - ine
-            xpath.create_node('Saddle'+str(sp.get_iden())+'E'+str(e), sp.get_nid(), parent=xm.get_nid(), data=sp)
+            xpath.create_node('Saddle'+str(sp.get_iden())+'E'+str(e),
+                              sp.get_nid(), parent=xm.get_nid(), data=sp)
             for m_id in sp.get_left():
                 if m_id == 0:
                     # connect the xend
                     xend.set_nid(xend.get_nid()-1)
-                    xpath.create_node('END', xend.get_nid(), parent=sp.get_nid(), data=xend)
+                    xpath.create_node('END', xend.get_nid(),
+                                      parent=sp.get_nid(), data=xend)
                     # print '# ZLOG: CONNECTED MID', m_id
                 else:
                     # print '# ZLOG: SON ID', m_id
                     mp = getx_fromid(m_id, mlisted)
                     e = mp.get_e() - ine
-                    xpath.create_node('Minima' + str(mp.get_iden())+'E'+str(e), mp.get_nid(), parent=sp.get_nid(), data=mp)
+                    xpath.create_node('Minima' + str(mp.get_iden())+'E'+str(e),
+                                      mp.get_nid(), parent=sp.get_nid(), data=mp)
                     connect_path(ine, mlisted, slisted, mp, xend, fatherids, xpath)
     return 0
 
@@ -417,13 +442,6 @@ def mergelist(xlist):
                 xt = cp(xc)
         ltt = list(set(lt))
         rtt = list(set(rt))
-        #nltt = []
-        #if len(ltt) > 1:
-        #    for i in ltt:
-        #        if i not in rtt:
-        #            nltt.append(i)
-        #else:
-        #    nltt = ltt[:]
         xt.set_left(ltt)
         xt.set_right(rtt)
         xlisted.append(xt)
@@ -460,6 +478,51 @@ def write_de(xyldist, e0):
     for x in data:
         f.write("%8.7E  %8.7E  %8.7E\n" % tuple(x))
     f.close()
+
+
+def get_barrier(mlist, slist, startp, endp):
+    # get barrier energy for startp (reactant/product)
+    # to endp (one local minima)
+    mlisted = mergelist(mlist)
+    slisted = mergelist(slist)
+    endp.set_nid(-1)
+    ine = endp.get_e()
+    if endp.get_iden() > 0:
+        xpath = Tree()
+        fatherids = []
+        endp.set_nid(0)
+        xpath.create_node('M' + str(endp.get_iden()), 0, data=endp)
+        sdata.nidp = 0
+        connect_path(ine, mlisted, slisted, endp, startp, fatherids, xpath)
+
+        dd = []
+        for xx in xpath.all_nodes():
+            if xx.identifier < 0:
+                d = []
+                d.append(xx.data)
+                nid = xx.bpointer
+                nxx = xpath.get_node(nid)
+                while True:
+                    d.append(nxx.data)
+                    if nxx.is_root():
+                        break
+                    nid = nxx.bpointer
+                    nxx = xpath.get_node(nid)
+                dd.append(d)
+        xe = []
+        for x in dd:
+            ee = []
+            for dx in x:
+                exx = dx.get_e() - sdata.reace
+                ee.append(exx)
+            xe.append(max(ee))
+        mxe = min(xe)
+    else:
+        mxe = 0.0
+
+    return mxe
+
+
 
 
 def main():
@@ -514,7 +577,8 @@ def utest1():
             xx = xpath.get_node(nid)
             while True:
                 d.append(xx.data)
-                if xx.is_root(): break
+                if xx.is_root():
+                    break
                 nid = xx.bpointer
                 xx = xpath.get_node(nid)
             dd.append(d)
@@ -568,15 +632,8 @@ def utest2():
                 print xx.get_iden(), yy.get_iden()
 
     print 'len', len(goodlist)
-    # sys.exit(1)
-    # kk = 0
-    # for i in range(len(goodlist)):
-    #     print kk
-    #     kk += 1
-    #     # print goodlist[i]
-    # sys.exit(1)
 
-    ine= xend.get_e()
+    ine = xend.get_e()
 
     xend.set_nid(-1)
     yend.set_nid(-1)
@@ -605,7 +662,7 @@ def utest2():
             connect_path(ine, ymlisted, yslisted, yy, yend, fatherids, ypath)
 
         if xx.get_iden() > 0:
-            dd =[]
+            dd = []
             for xxx in xpath.all_nodes():
                 if xxx.identifier < 0:
                     d = []
@@ -614,7 +671,8 @@ def utest2():
                     nxx = xpath.get_node(nid)
                     while True:
                         d.append(nxx.data)
-                        if nxx.is_root(): break
+                        if nxx.is_root():
+                            break
                         nid = nxx.bpointer
                         nxx = xpath.get_node(nid)
                     dd.append(d)
@@ -639,7 +697,8 @@ def utest2():
                     nyy = ypath.get_node(nid)
                     while True:
                         d.append(nyy.data)
-                        if nyy.is_root(): break
+                        if nyy.is_root():
+                            break
                         nid = nyy.bpointer
                         nyy = ypath.get_node(nid)
                     dd.append(d)
@@ -657,7 +716,7 @@ def utest2():
         print 'BAR', max(mxe, mye), mxe, mye
         mxy.append([max(mxe, mye), xx, yy])
 
-    mxysort = sorted(mxy, key=lambda x:x[0])
+    mxysort = sorted(mxy, key=lambda x: x[0])
     print mxysort[0][0]
     print mxysort[0][1].get_iden()
     print mxysort[0][2].get_iden()
