@@ -17,6 +17,7 @@ from w2 import gen_rsaddle, initrun
 
 sys.setrecursionlimit(100000)
 
+
 def wo(reac, prod):
     reace = reac.get_e()
     print 'ZLOG, reace', reace
@@ -428,7 +429,7 @@ def mergelist(xlist):
     for xc in xlist:
         xid.append(xc.get_iden())
 
-    print 'set(xid)', set(xid)
+    # print 'set(xid)', set(xid)
     for idt in set(xid):
         simit = []
         lt = []
@@ -740,8 +741,8 @@ def utest2():
 
 
 if __name__ == "__main__":
-    # main()
-    utest2()
+    main()
+    # utest2()
 
 
 
