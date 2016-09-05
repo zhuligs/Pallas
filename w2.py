@@ -171,7 +171,10 @@ def gen_rsaddle(reac):
         e = 151206.0
         while abs(e - 151206) < 1.0:
             xmode = get_rmode()
-            xsad = rundim(reac, xmode)
+            try:
+                xsad = rundim(reac, xmode)
+            except:
+                xsad = cp(reac)
             e = xsad.get_e()
             # print 'ZLOG: SAD E:', e
         succ = checkident(xsad)

@@ -49,8 +49,14 @@ def wo(reac, prod):
         reac.add_right(xid)
         prod.add_right(yid)
         gmod = get_0mode()
-        xloc = gopt(xsad, gmod)
-        yloc = gopt(ysad, gmod)
+        try:
+            xloc = gopt(xsad, gmod)
+        except:
+            xloc = cp(reac)
+        try:
+            yloc = gopt(ysad, gmod)
+        except:
+            yloc = prod
         xid = update_iden(sdata.xllist, xloc)
         yid = update_iden(sdata.yllist, yloc)
         xloc.set_iden(xid)
@@ -206,8 +212,14 @@ def woo(reac, prod):
             Xsad.append(xsad)
             Ysad.append(ysad)
             gmod = get_0mode()
-            xxloc = gopt(xsad, gmod)
-            yyloc = gopt(ysad, gmod)
+            try:
+                xxloc = gopt(xsad, gmod)
+            except:
+                xxloc = cp(xloc)
+            try:
+                yyloc = gopt(ysad, gmod)
+            except:
+                yyloc = cp(yloc)
             xid = update_iden(sdata.xllist, xxloc)
             yid = update_iden(sdata.yllist, yyloc)
             xxloc.set_iden(xid)
@@ -366,7 +378,11 @@ def gen_psaddle(xy, xcell, istep, ip):
     w = 0.9 - 0.5 * (istep + 1) / itin.instep
     (r1, r2) = np.random.rand(2)
     v = v0 * w + c1 * r1 * getx(pbest, xcell) + c2 * r2 * getx(gbest, xcell)
-    scell = rundim(xcell, v)
+    try:
+        scell = rundim(xcell, v)
+    except:
+        scell = cp(xcell)
+        v = cp(v0)
     return (scell, v)
 
 
