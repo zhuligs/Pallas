@@ -14,6 +14,7 @@ import fppy
 from wrapdimer import get_mode, get_0mode, get_rmode
 from zfunc import gopt, rundim, set_cell_from_vasp, write_cell_to_vasp, getx
 from w2 import gen_rsaddle, initrun
+import os
 
 sys.setrecursionlimit(100000)
 
@@ -187,6 +188,7 @@ def woo(reac, prod):
         xlocs = sdata.xlocs[istep]
         ylocs = sdata.ylocs[istep]
         for ip in range(itin.npop):
+            if os.path.isfile('CSTOP'): return
             xloc = xlocs[ip]
             yloc = ylocs[ip]
             if sdata.ifpsox[ip]:
