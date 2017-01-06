@@ -1,5 +1,5 @@
-#!/usr/bin/python -u 
-# 
+#!/usr/bin/python -u
+#
 
 import sys, os, time
 from copy import deepcopy as cp
@@ -47,9 +47,9 @@ def foo(xend, istep):
         # f = open(cdir + 'premin.zf', 'w')
         # pick.dump(preminima, f)
         # f.close()
-    
+
     get_optfile_ready(istep)
-    jobids = pushjob(istep) 
+    jobids = pushjob(istep)
     if checkjob(jobids) == 0:
         pulljob('opt', istep)
     else:
@@ -58,35 +58,46 @@ def foo(xend, istep):
 
     for ip in range(itin.npop):
         print 'energy', stepdata[ip].rightmin.get_e()
-    sys.exit(1)
+    # sys.exit(1)
 
     for ip in range(itin.npop):
         # set stepdata[ip].rightmin
         cdir = 'Cal' + str(ip)
         (sadcell, sadmode) = interpolatesad(stepdata[ip].leftmin, stepdata[ip].rightmin)
         stepdata[ip].sadmode = cp(sadmode)
-        f = open(cdir + 'sadmode.zf', 'w')
-        pick.dump(stepdata)
+        stepdata[ip].presad = cp(sadcell)
+        f = open(cdir + '/sadmode.zf', 'w')
+        pick.dump(sadmode, f)
         f.close()
 
-    get_dimfile_ready()
-    jobids = pushjob()
+    get_dimfile_ready(istep)
+    # sys.exit(1)
+    jobids = pushjob(istep)
     if checkjob(jobids) == 0:
-        pulljob()
+        pulljob('sad', istep)
     else:
         return 100
 
 
+    ## DEBUG
+    for ip in range(itin.npop):
+        print 'IP ' , ip
+        print stepdata[ip].leftmin.get_energy()
+        print stepdata[ip].saddle.get_energy()
+        print stepdata[ip].rightmin.get_energy()
+    print '###### END #####'
+
+
     # RETURN stepdata
 
- ##############  END FOO  ######################   
+ ##############  END FOO  ######################
 
     # for ip in range(itin.npop):
     #     stepdata[ip].rightmin = cp(saddle_points[ip])
 
     # # connect the left and right
     # for ip in range(itin.npop):
-    #     # interpolate the saddle 
+    #     # interpolate the saddle
 
 
 
@@ -117,6 +128,8 @@ def interpolatesad(leftmin, rightmin):
     tcell.set_lattice(neblat)
     return(tcell, tmode)
 
+    # use the lattice of leftmin, and atomic positions of neb
+
 
 def apply_mode(xcell, mode):
     natom = itin.nat
@@ -138,6 +151,14 @@ def get_optfile_ready(istep):
         # get the incar, potcar, kpoints ready in the pbs.sh file
 
 
+def get_dimfile_ready(istep):
+    stepdata = sdata.evodata[istep]
+    for ip in range(itin.npop):
+        cdir = 'Cal' + str(ip)
+        pcar = cdir + '/PRESAD.vasp'
+        write_cell_to_vasp(stepdata[ip].presad, pcar)
+        os.system('cp dvjob.py ' + cdir)
+        os.system('cp pbs_dim.sh ' + cdir + '/pbs.sh')
 
 
 def pushjob(istep):
@@ -170,7 +191,7 @@ def checkids(jobids):
                 reminds.append(x.split()[0])
         except:
             print 'except 1'
-            return True 
+            return True
     else:
         print 'except 2'
         return True
@@ -205,21 +226,40 @@ def pulljob(otyp, istep):
             pcell = set_cell_from_vasp(cdir + '/CONTCAR')
             e = float(os.popen("awk '/free  energy/{print $5}' " + cdir +
                 "/OUTCAR|tail -1").read())
-            h = itin.press * pcell.get_volume() / 1602.2 + e 
+            h = itin.press * pcell.get_volume() / 1602.2 + e
             pcell.set_e(h)
             sdata.evodata[istep][ip].rightmin = cp(pcell)
+    elif otyp == 'sad':
+        for ip in range(itin.npop):
+            cdir = 'Cal' + str(ip)
+            pcell = set_cell_from_vasp(cdir + '/CONTCAR')
+            e = float(os.popen("grep DIMERENERGY dvjob.out |tail -1").read().split()[1])
+            h = itin.press * pcell.get_volume() / 1602.2 + e
+            pcell.set_e(h)
+            sdata.evodata[istep][ip].saddle = cp(pcell)
+    else:
+        print '# ZLOG: otyp error'
 
     return 0
 
 
 
-# def evolution():
-#     for istep in range(total_step):
-#         foo(reac, istep)
+def evolution(reac):
+    for istep in range(total_step):
+        foo(reac, istep)
+        # rank the fitness
+        dists = []
+        for i in range(itin.npop):
 
-#         for i in range(npop):
-#             pass()
 
+
+
+def main():
+    initrun()
+    f = open('xend.bin')
+    xend = pick.load(f)
+    f.close()
+    evolution(xend)
 
 
 def test():
@@ -234,7 +274,7 @@ def test():
 
 if __name__ == '__main__':
     test()
-            
+
 
 
 

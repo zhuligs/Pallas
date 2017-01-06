@@ -15,7 +15,7 @@ import cPickle as pick
 
 
 # read geometry and set calculator
-p = read('TSCELL',format='vasp')
+p = read('PRESAD.vasp',format='vasp')
 #p = read('CdSe_hex',format='vasp')
 
 calc = Vasp(prec = 'Normal',
@@ -24,7 +24,6 @@ calc = Vasp(prec = 'Normal',
             gamma= True,
             lcharg = False,
             npar = 4,
-            encut= 520,
             ismear = 0,
             sigma  = 0.08,
             isym = 0,
@@ -59,7 +58,7 @@ jacob = (vol/natom)**(1.0/3.0) * natom**0.5
 #######################################
 
 # read mode file
-f = open('tmode')
+f = open('tmode.zf')
 mode = pick.load(f)
 f.close()
 
