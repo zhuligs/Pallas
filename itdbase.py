@@ -190,6 +190,16 @@ class Cell:
         return self.nid
 
 
+class ConnectObj:
+    def __init__(self):
+        self.presad = None
+        self.sadmod = None
+        self.saddle = None
+        self.leftmin = None
+        self.premin = None
+        self.rightmin = None
+
+
 def lat2vec(lat):
     return np.array([lat[0][0], lat[1][1], lat[2][2],
                      lat[1][0], lat[2][0], lat[2][1]], float)

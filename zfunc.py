@@ -2,6 +2,7 @@ import numpy as np
 from itdbase import Cell
 import itin
 from copy import deepcopy as cp
+import cPickle as pick
 
 # from tsase.optimize import MDMin
 from ase.optimize.fire import FIRE
@@ -135,6 +136,21 @@ def rundim_vasp(xcell, mode):
     sdata.ddir = ddir
 
     return pcell
+
+
+def rundim_ts(xcell, mode):
+    write_cell_to_vasp('TSCELL', 'w')
+    f = open('tmode', 'w')
+    pick.dump(mode, 'f')
+    f.close()
+    os.system('python -u dvjob.py > zout')
+    os.system('rm WAVECAR')
+    e = float(os.popen("awk '/TTENERGY/{print $2}' zout").read())
+    pcell = set_cell_from_vasp('dimer1.con')
+    h = itin.press * pcell.get_volume() / 1602.2 + e
+    pcell.set_e(h)
+    return pcell
+
 
 
 def rundim_lammps(xcell, mode):
