@@ -17,6 +17,7 @@ bestmdist = 100.
 gbests = []
 leader = None
 pbests = []
+gbest = None
 fitpbest = []
 x0s = []
 
@@ -54,3 +55,4 @@ nidp = 0
 reace = 0.0
 
 evodata = []
+product = None

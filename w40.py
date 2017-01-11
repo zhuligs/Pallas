@@ -7,6 +7,7 @@ import numpy as np
 import cPickle as pick
 
 # local
+import fppy
 import itin
 import itdbase
 import sdata
@@ -16,8 +17,10 @@ from itin import instep as total_step
 from zfunc import write_cell_to_vasp, set_cell_from_vasp
 
 
-
 def initrun():
+    f = open('prod.bin')
+    sdata.product = pick.load(f)
+    f.close()
     for istep in range(itin.instep):
         stepdata = []
         for i in range(itin.npop):
@@ -55,7 +58,6 @@ def foo(xend, istep):
     else:
         return 100
 
-
     for ip in range(itin.npop):
         print 'energy', stepdata[ip].rightmin.get_e()
     # sys.exit(1)
@@ -63,7 +65,8 @@ def foo(xend, istep):
     for ip in range(itin.npop):
         # set stepdata[ip].rightmin
         cdir = 'Cal' + str(ip)
-        (sadcell, sadmode) = interpolatesad(stepdata[ip].leftmin, stepdata[ip].rightmin)
+        (sadcell, sadmode) = interpolatesad(stepdata[ip].leftmin,
+                                            stepdata[ip].rightmin)
         stepdata[ip].sadmode = cp(sadmode)
         stepdata[ip].presad = cp(sadcell)
         f = open(cdir + '/sadmode.zf', 'w')
@@ -78,19 +81,16 @@ def foo(xend, istep):
     else:
         return 100
 
-
-    ## DEBUG
+    # DEBUG
     for ip in range(itin.npop):
-        print 'IP ' , ip
+        print 'IP ', ip
         print stepdata[ip].leftmin.get_energy()
         print stepdata[ip].saddle.get_energy()
         print stepdata[ip].rightmin.get_energy()
     print '###### END #####'
 
-
     # RETURN stepdata
-
- ##############  END FOO  ######################
+    # #############  END FOO  ######################
 
     # for ip in range(itin.npop):
     #     stepdata[ip].rightmin = cp(saddle_points[ip])
@@ -98,8 +98,6 @@ def foo(xend, istep):
     # # connect the left and right
     # for ip in range(itin.npop):
     #     # interpolate the saddle
-
-
 
     # # local opt
     # get_opt_ready()
@@ -212,7 +210,7 @@ def checkjob(jobids):
         if os.path.isfile('CSTOP'):
             os.system('rm -f CSTOP')
             print 'CSTOP'
-            for ii in idpool:
+            for ii in jobids:
                 print 'qdel ' + ii
                 os.system('qdel ' + ii)
             return 100
@@ -243,13 +241,42 @@ def pulljob(otyp, istep):
     return 0
 
 
-
 def evolution(reac):
+    # fingerprint of product: fpp
+    fpp = sdata.product.get_lfp()
     for istep in range(total_step):
         foo(reac, istep)
         # rank the fitness
         dists = []
-        for i in range(itin.npop):
+        for ip in range(itin.npop):
+            fpx = sdata.evodata[istep][ip].rightmin.get_lfp()
+            (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpp, fpx)
+            print "# ZLOG: STEP %d IP %d DIST %7.4E" % (istep, ip, dist)
+            dists.append(dist)
+            if istep == 0:
+                sdata.pbests.append(cp(sdata.evodata[istep][ip].rightmin))
+                sdata.fitpbest.append(dist)
+            else:
+                if dist < sdata.fitpbest[ip]:
+                    sdata.fitpbest[ip] = dist
+                    sdata.pbests[ip] = cp(sdata.evodata[istep][ip].rightmin)
+        mindist = min(dists)
+        minid = dists.index(mindist)
+        if sdata.gbest is None:
+            sdata.gbest = cp(sdata.evodata[istep][minid].rightmin)
+            sdata.bestdist = mindist
+        else:
+            if mindist < sdata.bestdist:
+                sdata.gbest = cp(sdata.evodata[istep][minid].rightmin)
+                sdata.bestdist = mindist
+
+        for ip in range(itin.npop):
+            psomode = gen_psomode(ip)
+            cdir = 'Cal' + str(ip)
+            f = open(cdir + '/pmode.zf', 'w')
+            pick.dump(psomode, f)
+            f.close()
+
 
 
 
@@ -268,8 +295,6 @@ def test():
     xend = pick.load(f)
     f.close()
     foo(xend, 0)
-
-
 
 
 if __name__ == '__main__':
