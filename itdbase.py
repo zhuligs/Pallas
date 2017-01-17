@@ -198,6 +198,7 @@ class ConnectObj:
         self.leftmin = None
         self.premin = None
         self.rightmin = None
+        self.psomode = None
 
 
 def lat2vec(lat):

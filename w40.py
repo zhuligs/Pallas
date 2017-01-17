@@ -14,13 +14,19 @@ import sdata
 from util import vunit, vrand
 from itin import npop
 from itin import instep as total_step
-from zfunc import write_cell_to_vasp, set_cell_from_vasp
+from zfunc import write_cell_to_vasp, set_cell_from_vasp, getx
 
 
 def initrun():
     f = open('prod.bin')
     sdata.product = pick.load(f)
     f.close()
+    f = open('reac.bin')
+    sdata.reactant = pick.load(f)
+    f.close()
+    lp = sdata.product.get_lfp()
+    ls = sdata.product.get_lfp()
+    (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, lp, ls)
     for istep in range(itin.instep):
         stepdata = []
         for i in range(itin.npop):
@@ -30,6 +36,8 @@ def initrun():
     for ip in range(itin.npop):
         cdir = 'Cal' + str(ip)
         os.system('mkdir -p ' + cdir)
+        sdata.pbests.append(cp(sdata.reactant))
+        sdata.fitpbest.append(dist)
 
 
 def foo(xend, istep):
@@ -46,6 +54,7 @@ def foo(xend, istep):
         stepdata[ip].leftmin = cp(xend)
         preminima = apply_mode(xend, tmode)
         stepdata[ip].premin = cp(preminima)
+        stepdata[ip].psomode = cp(tmode)
         # opt preminima
         # f = open(cdir + 'premin.zf', 'w')
         # pick.dump(preminima, f)
@@ -84,9 +93,9 @@ def foo(xend, istep):
     # DEBUG
     for ip in range(itin.npop):
         print 'IP ', ip
-        print stepdata[ip].leftmin.get_energy()
-        print stepdata[ip].saddle.get_energy()
-        print stepdata[ip].rightmin.get_energy()
+        print stepdata[ip].leftmin.get_e()
+        print stepdata[ip].saddle.get_e()
+        print stepdata[ip].rightmin.get_e()
     print '###### END #####'
 
     # RETURN stepdata
@@ -227,11 +236,12 @@ def pulljob(otyp, istep):
             h = itin.press * pcell.get_volume() / 1602.2 + e
             pcell.set_e(h)
             sdata.evodata[istep][ip].rightmin = cp(pcell)
+            sdata.evodata[istep+1][ip].leftmin = cp(pcell)
     elif otyp == 'sad':
         for ip in range(itin.npop):
             cdir = 'Cal' + str(ip)
             pcell = set_cell_from_vasp(cdir + '/CONTCAR')
-            e = float(os.popen("grep DIMERENERGY dvjob.out |tail -1").read().split()[1])
+            e = float(os.popen("grep DIMERENERGY " + cdir + "/dvjob.out |tail -1").read().split()[1])
             h = itin.press * pcell.get_volume() / 1602.2 + e
             pcell.set_e(h)
             sdata.evodata[istep][ip].saddle = cp(pcell)
@@ -241,64 +251,136 @@ def pulljob(otyp, istep):
     return 0
 
 
-def evolution(reac):
+def evolution():
+    reac = sdata.reactant
+    prod = sdata.product
     # fingerprint of product: fpp
     fpp = sdata.product.get_lfp()
-    for istep in range(total_step):
-        foo(reac, istep)
-        # rank the fitness
+    # for istep in range(total_step):
+    istep = 0
+    foo(reac, istep)
+    f = open('sdata.bin', 'w')
+    pick.dump(sdata, f)
+    f.close()
+    # rank the fitness
+    dists = []
+    for ip in range(itin.npop):
+        fpx = sdata.evodata[istep][ip].rightmin.get_lfp()
+        (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpp, fpx)
+        print "# ZLOG: STEP %d IP %d DIST %7.4E" % (istep, ip, dist)
+        dists.append(dist)
+
+        if dist < sdata.fitpbest[ip]:
+            sdata.fitpbest[ip] = dist
+            sdata.pbests[ip] = cp(sdata.evodata[istep][ip].rightmin)
+    mindist = min(dists)
+    minid = dists.index(mindist)
+    # if sdata.gbest is None:
+    sdata.gbest = cp(sdata.evodata[istep][minid].rightmin)
+    sdata.bestdist = mindist
+    f = open('sdata.bin', 'w')
+    pick.dump(sdata, f)
+    f.close()
+    # else:
+    #     if mindist < sdata.bestdist:
+    #         sdata.gbest = cp(sdata.evodata[istep][minid].rightmin)
+    #         sdata.bestdist = mindist
+
+    for istep in range(1, total_step):
+        stepdata = sdata.evodata[istep]
+        for ip in range(itin.npop):
+            psomode = gen_psomode(istep, ip)
+            cdir = 'Cal' + str(ip)
+            f = open(cdir + '/pmode.zf', 'w')
+            pick.dump(psomode, f)
+            f.close()
+            preminima = apply_mode(stepdata[istep].leftmin, psomode)
+            stepdata[ip].premin = cp(preminima)
+
+        get_optfile_ready(istep)
+        jobids = pushjob(istep)
+        if checkjob(jobids) == 0:
+            pulljob('opt', istep)
+        else:
+            return 100
+
+        for ip in range(itin.npop):
+            print 'energy', stepdata[ip].rightmin.get_e()
+
+        for ip in range(itin.npop):
+            cdir = 'Cal' + str(ip)
+            (sadcell, sadmode) = interpolatesad(stepdata[ip].leftmin,
+                                                stepdata[ip].rightmin)
+            stepdata[ip].sadmode = cp(sadmode)
+            stepdata[ip].presad = cp(sadcell)
+            f = open(cdir + '/sadmode.zf', 'w')
+            pick.dump(sadmode, f)
+            f.close()
+
+        get_dimfile_ready(istep)
+        # sys.exit(1)
+        jobids = pushjob(istep)
+        if checkjob(jobids) == 0:
+            pulljob('sad', istep)
+        else:
+            return 100
+
+        # DEBUG
+        for ip in range(itin.npop):
+            print 'IP ', ip
+            print stepdata[ip].leftmin.get_e()
+            print stepdata[ip].saddle.get_e()
+            print stepdata[ip].rightmin.get_e()
+
         dists = []
         for ip in range(itin.npop):
             fpx = sdata.evodata[istep][ip].rightmin.get_lfp()
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpp, fpx)
             print "# ZLOG: STEP %d IP %d DIST %7.4E" % (istep, ip, dist)
             dists.append(dist)
-            if istep == 0:
-                sdata.pbests.append(cp(sdata.evodata[istep][ip].rightmin))
-                sdata.fitpbest.append(dist)
-            else:
-                if dist < sdata.fitpbest[ip]:
-                    sdata.fitpbest[ip] = dist
-                    sdata.pbests[ip] = cp(sdata.evodata[istep][ip].rightmin)
+
+            if dist < sdata.fitpbest[ip]:
+                sdata.fitpbest[ip] = dist
+                sdata.pbests[ip] = cp(sdata.evodata[istep][ip].rightmin)
         mindist = min(dists)
         minid = dists.index(mindist)
-        if sdata.gbest is None:
+        if mindist < sdata.bestdist:
             sdata.gbest = cp(sdata.evodata[istep][minid].rightmin)
             sdata.bestdist = mindist
-        else:
-            if mindist < sdata.bestdist:
-                sdata.gbest = cp(sdata.evodata[istep][minid].rightmin)
-                sdata.bestdist = mindist
 
-        for ip in range(itin.npop):
-            psomode = gen_psomode(ip)
-            cdir = 'Cal' + str(ip)
-            f = open(cdir + '/pmode.zf', 'w')
-            pick.dump(psomode, f)
-            f.close()
+        f = open('sdata.bin', 'w')
+        pick.dump(sdata, f)
+        f.close()
 
 
-
+def gen_psomode(x0, istep, ip):
+    c1 = 2.0
+    c2 = 2.0
+    # c3 = 2.0
+    w = 0.9 - 0.5 * (istep + 1) / itin.instep
+    (r1, r2, r3) = np.random.rand(2)
+    v0 = sdata.evodata[istep-1][ip].psomode
+    pbest = sdata.pbests[ip]
+    gbest = sdata.product
+    v = v0 * w + c1 * r1 * getx(pbest, x0) + c2 * r2 * getx(gbest, x0)
+    return v
 
 
 def main():
     initrun()
-    f = open('xend.bin')
-    xend = pick.load(f)
-    f.close()
-    evolution(xend)
+    evolution()
 
 
 def test():
     initrun()
-    f = open('xend.bin')
+    f = open('reac.bin')
     xend = pick.load(f)
     f.close()
     foo(xend, 0)
 
 
 if __name__ == '__main__':
-    test()
+    main()
 
 
 
