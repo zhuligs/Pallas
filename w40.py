@@ -26,6 +26,7 @@ def initrun():
     f.close()
     lp = sdata.product.get_lfp()
     ls = sdata.product.get_lfp()
+    sdata.types = sdata.reactant.get_types()
     (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, lp, ls)
     for istep in range(itin.instep):
         stepdata = []
@@ -231,9 +232,12 @@ def pulljob(otyp, istep):
         for ip in range(itin.npop):
             cdir = 'Cal' + str(ip)
             pcell = set_cell_from_vasp(cdir + '/CONTCAR')
-            e = float(os.popen("awk '/free  energy/{print $5}' " + cdir +
-                "/OUTCAR|tail -1").read())
-            h = itin.press * pcell.get_volume() / 1602.2 + e
+            try:
+                e = float(os.popen("awk '/free  energy/{print $5}' " + cdir +
+                    "/OUTCAR|tail -1").read())
+                h = itin.press * pcell.get_volume() / 1602.2 + e
+            except:
+                h = 31118.
             pcell.set_e(h)
             sdata.evodata[istep][ip].rightmin = cp(pcell)
             sdata.evodata[istep+1][ip].leftmin = cp(pcell)
@@ -241,8 +245,11 @@ def pulljob(otyp, istep):
         for ip in range(itin.npop):
             cdir = 'Cal' + str(ip)
             pcell = set_cell_from_vasp(cdir + '/CONTCAR')
-            e = float(os.popen("grep DIMERENERGY " + cdir + "/dvjob.out |tail -1").read().split()[1])
-            h = itin.press * pcell.get_volume() / 1602.2 + e
+            try:
+                e = float(os.popen("grep DIMERENERGY " + cdir + "/dvjob.out |tail -1").read().split()[1])
+                h = itin.press * pcell.get_volume() / 1602.2 + e
+            except:
+                h = 31118.
             pcell.set_e(h)
             sdata.evodata[istep][ip].saddle = cp(pcell)
     else:
@@ -255,12 +262,12 @@ def evolution():
     reac = sdata.reactant
     prod = sdata.product
     # fingerprint of product: fpp
-    fpp = sdata.product.get_lfp()
+    fpp = prod.get_lfp()
     # for istep in range(total_step):
     istep = 0
     foo(reac, istep)
     f = open('sdata.bin', 'w')
-    pick.dump(sdata, f)
+    pick.dump(sdata.evodata, f)
     f.close()
     # rank the fitness
     dists = []
@@ -279,7 +286,7 @@ def evolution():
     sdata.gbest = cp(sdata.evodata[istep][minid].rightmin)
     sdata.bestdist = mindist
     f = open('sdata.bin', 'w')
-    pick.dump(sdata, f)
+    pick.dump(sdata.evodata, f)
     f.close()
     # else:
     #     if mindist < sdata.bestdist:
@@ -289,7 +296,7 @@ def evolution():
     for istep in range(1, total_step):
         stepdata = sdata.evodata[istep]
         for ip in range(itin.npop):
-            psomode = gen_psomode(istep, ip)
+            psomode = gen_psomode(stepdata[istep].leftmin, istep, ip)
             cdir = 'Cal' + str(ip)
             f = open(cdir + '/pmode.zf', 'w')
             pick.dump(psomode, f)
@@ -349,7 +356,7 @@ def evolution():
             sdata.bestdist = mindist
 
         f = open('sdata.bin', 'w')
-        pick.dump(sdata, f)
+        pick.dump(sdata.evodata, f)
         f.close()
 
 
@@ -358,17 +365,36 @@ def gen_psomode(x0, istep, ip):
     c2 = 2.0
     # c3 = 2.0
     w = 0.9 - 0.5 * (istep + 1) / itin.instep
-    (r1, r2, r3) = np.random.rand(2)
+    (r1, r2, r3) = np.random.rand(3)
     v0 = sdata.evodata[istep-1][ip].psomode
     pbest = sdata.pbests[ip]
     gbest = sdata.product
-    v = v0 * w + c1 * r1 * getx(pbest, x0) + c2 * r2 * getx(gbest, x0)
+    difp = getx(pbest, x0)
+    difg = getx(gbest, x0)
+    print 'v0', v0
+    print 'difp', difp
+    print 'difg', difg
+    v = v0 * w + c1 * r1 * difp + c2 * r2 * difg
     return v
 
 
 def main():
     initrun()
     evolution()
+
+
+def test1():
+    initrun()
+    reac = sdata.reactant
+    prod = sdata.product
+    print reac.get_e()
+    print prod.get_e()
+    f = open('sdata.bin')
+    sdata.evodata = pick.load(f)
+    f.close()
+    for ip in range(itin.npop):
+        print sdata.evodata[0][ip].rightmin.get_e()
+
 
 
 def test():
