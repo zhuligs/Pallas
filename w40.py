@@ -296,7 +296,7 @@ def evolution():
     for istep in range(1, total_step):
         stepdata = sdata.evodata[istep]
         for ip in range(itin.npop):
-            psomode = gen_psomode(stepdata[istep].leftmin, istep, ip)
+            psomode = gen_psomode(stepdata[ip].leftmin, istep, ip)
             cdir = 'Cal' + str(ip)
             f = open(cdir + '/pmode.zf', 'w')
             pick.dump(psomode, f)
@@ -394,6 +394,7 @@ def test1():
     f.close()
     for ip in range(itin.npop):
         print sdata.evodata[0][ip].rightmin.get_e()
+        print sdata.evodata[0][ip].psomode
 
 
 
