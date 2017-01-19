@@ -303,6 +303,7 @@ def evolution():
             f.close()
             preminima = apply_mode(stepdata[istep].leftmin, psomode)
             stepdata[ip].premin = cp(preminima)
+            stepdata[ip].psomode = cp(psomode)
 
         get_optfile_ready(istep)
         jobids = pushjob(istep)
