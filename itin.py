@@ -15,3 +15,5 @@ psoratio = 0.6
 press = 150
 
 interface = 'lammps'
+# interface = 'pbs'
+client = 'local'

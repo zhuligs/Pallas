@@ -155,8 +155,9 @@ def get_optfile_ready(istep):
         cdir = 'Cal' + str(ip)
         pcar = cdir + '/POSCAR'
         write_cell_to_vasp(stepdata[ip].premin, pcar)
-        os.system('cp pbs_opt.sh ' + cdir + '/pbs.sh')
-        # get the incar, potcar, kpoints ready in the pbs.sh file
+        if itin.client == 'pbs':
+            os.system('cp pbs_opt.sh ' + cdir + '/pbs.sh')
+            # get the incar, potcar, kpoints ready in the pbs.sh file
 
 
 def get_dimfile_ready(istep):
@@ -171,11 +172,20 @@ def get_dimfile_ready(istep):
 
 def pushjob(istep):
     jobids = []
-    for ip in range(itin.npop):
-        cdir = 'Cal' + str(ip)
-        jbuff = os.popen('cd ' + cdir + '; qsub pbs.sh').read()
-        jid = jbuff.strip()
-        jobids.append(jid)
+    if itin.client == 'pbs':
+        for ip in range(itin.npop):
+            cdir = 'Cal' + str(ip)
+            jbuff = os.popen('cd ' + cdir + '; qsub pbs.sh').read()
+            jid = jbuff.strip()
+            jobids.append(jid)
+    elif itin.client == 'local':
+        for ip in range(itin.npop):
+            cdir = 'Cal' + str(ip)
+            print 'ZOUT: OPT JOB', istep, 'IP', ip
+            os.system('cd ' + cdir + '; python -u ../oljob.py > oljob.out')
+    else:
+        print 'ZOUT: ERROR client in pushjob'
+        sys.exit(10)
     return jobids
 
 
@@ -212,6 +222,8 @@ def checkids(jobids):
 
 
 def checkjob(jobids):
+    if itin.client == 'local':
+        return 0
     finished = False
     while not finished:
         finished = checkids(jobids)
@@ -231,14 +243,21 @@ def pulljob(otyp, istep):
     if otyp == 'opt':
         for ip in range(itin.npop):
             cdir = 'Cal' + str(ip)
-            pcell = set_cell_from_vasp(cdir + '/CONTCAR')
-            try:
-                e = float(os.popen("awk '/free  energy/{print $5}' " + cdir +
-                    "/OUTCAR|tail -1").read())
-                h = itin.press * pcell.get_volume() / 1602.2 + e
-            except:
-                h = 31118.
-            pcell.set_e(h)
+            if itin.client == 'pbs':
+                pcell = set_cell_from_vasp(cdir + '/CONTCAR')
+                try:
+                    e = float(os.popen("awk '/free  energy/{print $5}' " + cdir +
+                        "/OUTCAR|tail -1").read())
+                    h = itin.press * pcell.get_volume() / 1602.2 + e
+                except:
+                    h = 31118.
+                pcell.set_e(h)
+            elif itin.client == 'local':
+                f = open(cdir + '/pcell.bin')
+                pcell = pick.load(f)
+                f.close()
+            else:
+                print 'ZOUT ERROR client in pulljob'
             sdata.evodata[istep][ip].rightmin = cp(pcell)
             sdata.evodata[istep+1][ip].leftmin = cp(pcell)
     elif otyp == 'sad':
