@@ -301,7 +301,7 @@ def evolution():
             f = open(cdir + '/pmode.zf', 'w')
             pick.dump(psomode, f)
             f.close()
-            preminima = apply_mode(stepdata[istep].leftmin, psomode)
+            preminima = apply_mode(stepdata[ip].leftmin, psomode)
             stepdata[ip].premin = cp(preminima)
             stepdata[ip].psomode = cp(psomode)
 
