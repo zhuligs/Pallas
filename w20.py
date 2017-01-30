@@ -110,7 +110,7 @@ def wo(reac, prod):
             print 'ZLOG: mdist, dist, log(dist), ee',\
                   mdist, dist, np.log(dist), ee
             xydist.append((mdist, (ix, iy), dist, ee))
-    xydistSort = sorted(xydist,  key=lambda x: x[0])
+    xydistSort = sorted(xydist, key=lambda x: x[0])
     sdata.bestdist = xydistSort[0][2]
     sdata.bestmdist = xydistSort[0][0]
     sdata.gbestx = cp(Xloc[xydistSort[0][1][0]])
@@ -188,7 +188,8 @@ def woo(reac, prod):
         xlocs = sdata.xlocs[istep]
         ylocs = sdata.ylocs[istep]
         for ip in range(itin.npop):
-            if os.path.isfile('CSTOP'): return
+            if os.path.isfile('CSTOP'):
+                return
             xloc = xlocs[ip]
             yloc = ylocs[ip]
             if sdata.ifpsox[ip]:
@@ -412,12 +413,12 @@ def connect_path(ine, mlisted, slisted, xm, xend, fatherids, xpath):
             fatherids.append(sp_id)
             sp = getx_fromid(sp_id, slisted)
             e = sp.get_e() - ine
-            xpath.create_node('Saddle'+str(sp.get_iden())+'E'+str(e),
+            xpath.create_node('Saddle' + str(sp.get_iden()) + 'E' + str(e),
                               sp.get_nid(), parent=xm.get_nid(), data=sp)
             for m_id in sp.get_left():
                 if m_id == 0:
                     # connect the xend
-                    xend.set_nid(xend.get_nid()-1)
+                    xend.set_nid(xend.get_nid() - 1)
                     xpath.create_node('END', xend.get_nid(),
                                       parent=sp.get_nid(), data=xend)
                     # print '# ZLOG: CONNECTED MID', m_id
@@ -425,9 +426,11 @@ def connect_path(ine, mlisted, slisted, xm, xend, fatherids, xpath):
                     # print '# ZLOG: SON ID', m_id
                     mp = getx_fromid(m_id, mlisted)
                     e = mp.get_e() - ine
-                    xpath.create_node('Minima' + str(mp.get_iden())+'E'+str(e),
-                                      mp.get_nid(), parent=sp.get_nid(), data=mp)
-                    connect_path(ine, mlisted, slisted, mp, xend, fatherids, xpath)
+                    xpath.create_node('Minima' + str(mp.get_iden()) + 'E' +
+                                      str(e), mp.get_nid(),
+                                      parent=sp.get_nid(), data=mp)
+                    connect_path(ine, mlisted, slisted, mp,
+                                 xend, fatherids, xpath)
     return 0
 
 
@@ -540,8 +543,6 @@ def get_barrier(mlist, slist, startp, endp):
         mxe = 0.0
 
     return mxe
-
-
 
 
 def main():
@@ -668,7 +669,7 @@ def utest2():
             xpath = Tree()
             fatherids = []
             xx.set_nid(0)
-            xpath.create_node('Minima'+str(xx.get_iden()), 0, data=xx)
+            xpath.create_node('Minima' + str(xx.get_iden()), 0, data=xx)
             sdata.nidp = 0
             connect_path(ine, xmlisted, xslisted, xx, xend, fatherids, xpath)
 
@@ -676,7 +677,7 @@ def utest2():
             ypath = Tree()
             fatherids = []
             yy.set_nid(0)
-            ypath.create_node('Minima'+str(yy.get_iden()), 0, data=yy)
+            ypath.create_node('Minima' + str(yy.get_iden()), 0, data=yy)
             sdata.nidp = 0
             connect_path(ine, ymlisted, yslisted, yy, yend, fatherids, ypath)
 
@@ -754,27 +755,6 @@ def utest2():
     xpath.save2file('xp.dat')
 
 
-
-
-
-
 if __name__ == "__main__":
     main()
     # utest2()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

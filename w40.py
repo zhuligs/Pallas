@@ -1,7 +1,9 @@
 #!/usr/bin/python -u
 #
 
-import sys, os, time
+import sys
+import os
+import time
 from copy import deepcopy as cp
 import numpy as np
 import cPickle as pick
@@ -12,7 +14,6 @@ import itin
 import itdbase
 import sdata
 from util import vunit, vrand
-from itin import npop
 from itin import instep as total_step
 from zfunc import write_cell_to_vasp, set_cell_from_vasp, getx
 
@@ -69,7 +70,7 @@ def initrun():
 
 
 def foo(xend, istep):
-    energy_xend = xend.get_e()
+    # energy_xend = xend.get_e()
     stepdata = sdata.evodata[istep]
     for ip in range(itin.npop):
         cdir = 'Cal' + str(ip)
@@ -157,7 +158,7 @@ def interpolatesad(leftmin, rightmin):
     os.system(itin.makenebcom + ' leftpos rightpos 1')
     nebcell = set_cell_from_vasp('01/POSCAR')
     neblat = nebcell.get_lattice()
-    tmode = np.zeros((itin.nat+3, 3))
+    tmode = np.zeros((itin.nat + 3, 3))
     tmode[:-3] = rightmin.get_positions() - leftmin.get_positions()
     tcell = cp(leftmin)
     tcell.set_lattice(neblat)
@@ -169,7 +170,7 @@ def interpolatesad(leftmin, rightmin):
 def apply_mode(xcell, mode):
     natom = itin.nat
     vol = xcell.get_volume()
-    jacob = (vol / natom)**(1.0/3.0) * natom**0.5
+    jacob = (vol / natom)**(1.0 / 3.0) * natom**0.5
     latt = xcell.get_lattice() + np.dot(xcell.get_lattice(), mode[-3:] / jacob)
     xcell.set_lattice(latt)
     xcell.set_positions(xcell.get_positions() + mode[:-3])
@@ -272,8 +273,8 @@ def pulljob(otyp, istep):
             if itin.client == 'pbs':
                 pcell = set_cell_from_vasp(cdir + '/CONTCAR')
                 try:
-                    e = float(os.popen("awk '/free  energy/{print $5}' " + cdir +
-                        "/OUTCAR|tail -1").read())
+                    e = float(os.popen("awk '/free  energy/{print $5}' " +
+                                       cdir + "/OUTCAR|tail -1").read())
                     h = itin.press * pcell.get_volume() / 1602.2 + e
                 except:
                     h = 31118.
@@ -282,17 +283,18 @@ def pulljob(otyp, istep):
                 f = open(cdir + '/pcell.bin')
                 pcell = pick.load(f)
                 f.close()
-            else: 
+            else:
                 print 'ZLOG ERROR client in pulljob 1'
             sdata.evodata[istep][ip].rightmin = cp(pcell)
-            sdata.evodata[istep+1][ip].leftmin = cp(pcell)
+            sdata.evodata[istep + 1][ip].leftmin = cp(pcell)
     elif otyp == 'sad':
         for ip in range(itin.npop):
             cdir = 'Cal' + str(ip)
             if itin.client == 'pbs':
                 pcell = set_cell_from_vasp(cdir + '/CONTCAR')
                 try:
-                    e = float(os.popen("grep DIMERENERGY " + cdir + "/dvjob.out |tail -1").read().split()[1])
+                    e = float(os.popen("grep DIMERENERGY " + cdir +
+                                       "/dvjob.out|tail -1").read().split()[1])
                     h = itin.press * pcell.get_volume() / 1602.2 + e
                 except:
                     h = 31118.
@@ -398,6 +400,7 @@ def evolution():
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpp, fpx)
             print "ZLOG: STEP %d IP %d DIST %7.4E" % (istep, ip, dist)
             dists.append(dist)
+            stepdata[ip].rmdist = dist
 
             if dist < sdata.fitpbest[ip]:
                 sdata.fitpbest[ip] = dist
@@ -419,7 +422,7 @@ def gen_psomode(x0, istep, ip):
     # c3 = 2.0
     w = 0.9 - 0.5 * (istep + 1) / itin.instep
     (r1, r2, r3) = np.random.rand(3)
-    v0 = sdata.evodata[istep-1][ip].psomode
+    v0 = sdata.evodata[istep - 1][ip].psomode
     pbest = sdata.pbests[ip]
     gbest = sdata.product
     difp = getx(pbest, x0)
@@ -450,7 +453,6 @@ def test1():
         print sdata.evodata[0][ip].psomode
 
 
-
 def test():
     initrun()
     f = open('reac.bin')
@@ -461,28 +463,3 @@ def test():
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

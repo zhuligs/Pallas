@@ -5,7 +5,7 @@ localhistory = []
 
 types = np.array([0])
 
-wdis=[]
+wdis = []
 wmodes = []
 wsads = []
 wlocs = []
@@ -22,7 +22,6 @@ fitpbest = []
 x0s = []
 
 ifpso = []
-
 
 xslist = []
 yslist = []
