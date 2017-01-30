@@ -38,16 +38,16 @@ def gopt_lammps():
 
     natom = len(p1)
     vol = p1.get_volume()
-    jacob = (vol/natom)**(1.0/3.0) * natom**0.5
+    # jacob = (vol/natom)**(1.0/3.0) * natom**0.5
     # mode = np.zeros((len(p)+3, 3))
     # mode = vrand(mode)
     # try:
     #     mode = vunit(mode)
     # except:
     #     pass
-    cellt = p1.get_cell() + np.dot(p1.get_cell(), mode[-3:]/jacob)
-    p1.set_cell(cellt, scale_atoms=True)
-    p1.set_positions(p1.get_positions() + mode[:-3])
+    # cellt = p1.get_cell() + np.dot(p1.get_cell(), mode[-3:]/jacob)
+    # p1.set_cell(cellt, scale_atoms=True)
+    # p1.set_positions(p1.get_positions() + mode[:-3])
 
     pstress = p1.get_cell()*0.0
 
