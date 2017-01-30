@@ -56,3 +56,5 @@ reace = 0.0
 evodata = []
 product = None
 reactant = None
+xdirs = []
+ydirs = []

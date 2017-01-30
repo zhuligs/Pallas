@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 import sys
+import os
 from copy import deepcopy as cp
 import numpy as np
 import cPickle as pick
@@ -14,12 +15,25 @@ import fppy
 from wrapdimer import get_mode, get_0mode, get_rmode
 from zfunc import gopt, rundim, set_cell_from_vasp, write_cell_to_vasp, getx
 from w2 import gen_rsaddle, initrun
-import os
+# from w40 import get_dimfile_ready, get_optfile_ready
+from w40 import checkjob
+
 
 sys.setrecursionlimit(100000)
 
 
+def w20init():
+    for ip in range(itin.npop):
+        xdir = 'Calx' + str(ip)
+        ydir = 'Caly' + str(ip)
+        os.system('mkdir -p ' + xdir)
+        os.system('mkdir -p ' + ydir)
+        sdata.xdirs.append(xdir)
+        sdata.ydirs.append(ydir)
+
+
 def wo(reac, prod):
+    istep = 0
     reace = reac.get_e()
     print 'ZLOG, reace', reace
     Xloc = []
@@ -36,8 +50,35 @@ def wo(reac, prod):
     sdata.yslist.append(prod)
     # DATABASE
     for ip in range(itin.npop):
-        (xsad, vx) = gen_rsaddle(reac)
-        (ysad, vy) = gen_rsaddle(prod)
+        xdir = sdata.xdirs[ip]
+        ydir = sdata.ydirs[ip]
+        xpcar = xdir + '/PRESAD.vasp'
+        ypcar = ydir + '/PRESAD.vasp'
+        write_cell_to_vasp(reac, xpcar)
+        write_cell_to_vasp(prod, ypcar)
+        xrmode = get_rmode()
+        yrmode = get_rmode()
+        f = open(xdir + '/rmode.zf', 'w')
+        pick.dump(xrmode, f)
+        f.close()
+        f = open(ydir + '/rmode.zf', 'w')
+        pick.dump(yrmode, f)
+        f.close()
+        os.system('cp pbs_dim.sh ' + xdir + '/pbs.sh')
+        os.system('cp pbs_dim.sh ' + ydir + '/pbs.sh')
+
+    jobids = pushjob(istep)
+    if checkjob(jobids) == 0:
+        (xsets, ysets) = pulljob()
+    else:
+        return 100
+
+    for ip in range(itin.npop):
+        xid = updata_iden(sdata.xslist, xsad)
+        yid = updata_iden(sdata.xslist, ysad)
+
+        # (xsad, vx) = gen_rsaddle(reac)
+        # (ysad, vy) = gen_rsaddle(prod)
         # update saddle point identical number
         xid = update_iden(sdata.xslist, xsad)
         yid = update_iden(sdata.yslist, ysad)
@@ -50,14 +91,15 @@ def wo(reac, prod):
         reac.add_right(xid)
         prod.add_right(yid)
         gmod = get_0mode()
-        try:
-            xloc = gopt(xsad, gmod)
-        except:
-            xloc = cp(reac)
-        try:
-            yloc = gopt(ysad, gmod)
-        except:
-            yloc = prod
+
+        # try:
+        #     xloc = gopt(xsad, gmod)
+        # except:
+        #     xloc = cp(reac)
+        # try:
+        #     yloc = gopt(ysad, gmod)
+        # except:
+        #     yloc = prod
         xid = update_iden(sdata.xllist, xloc)
         yid = update_iden(sdata.yllist, yloc)
         xloc.set_iden(xid)
@@ -349,6 +391,35 @@ def woo(reac, prod):
         #     break
 
 
+def pushjob():
+    jobids = []
+    if itin.client == 'pbs':
+        cdirs = sdata.xdirs + sdata.ydirs
+        for cdir in cdirs:
+            jbuff = os.popen('cd ' + cdir + '; qsub pbs.sh').read()
+            # this is desinged for memex cluster
+            jid = jbuff.strip()
+            jobids.append(jid)
+    return jobids
+
+
+def pulljob():
+    xsets = []
+    ysets = []
+    for ip in range(itin.npop):
+        xdir = sdata.xdirs[ip]
+        ydir = sdata.ydirs[ip]
+        f = open(xdir + '/pcell.bin')
+        xx = pick.load(f)
+        f.close()
+        f = open(ydir + '/pcell.bin')
+        yy = pick.load(f)
+        f.close()
+        xsets.append(xx)
+        ysets.append(yy)
+    return (xsets, ysets)
+
+
 def update_iden(xlist, cell):
     fpc = cell.get_lfp()
     oldids = []
@@ -547,6 +618,7 @@ def get_barrier(mlist, slist, startp, endp):
 
 def main():
     (reac, prod) = initrun()
+    w20init()
     woo(reac, prod)
     f = open('xm.dat', 'w')
     pick.dump(sdata.xllist, f)
