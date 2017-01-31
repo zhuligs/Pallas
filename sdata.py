@@ -58,3 +58,6 @@ product = None
 reactant = None
 xdirs = []
 ydirs = []
+
+evox = []
+evoy = []

@@ -202,6 +202,13 @@ class ConnectObj:
         self.rmdist = 100.
 
 
+class Cobj:
+    def __init__(self):
+        self.v = None
+        self.sad = None
+        self.loc = None
+
+
 def lat2vec(lat):
     return np.array([lat[0][0], lat[1][1], lat[2][2],
                      lat[1][0], lat[2][0], lat[2][1]], float)
