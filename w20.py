@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 import sys
+import os
 from copy import deepcopy as cp
 import numpy as np
 import cPickle as pick
@@ -11,94 +12,170 @@ from treelib import Node, Tree
 import itin
 import sdata
 import fppy
+import itdbase
 from wrapdimer import get_mode, get_0mode, get_rmode
 from zfunc import gopt, rundim, set_cell_from_vasp, write_cell_to_vasp, getx
 from w2 import gen_rsaddle, initrun
-import os
+# from w40 import get_dimfile_ready, get_optfile_ready
+from w40 import checkjob
+
 
 sys.setrecursionlimit(100000)
 
 
-def wo(reac, prod):
-    reace = reac.get_e()
-    print 'ZLOG, reace', reace
-    Xloc = []
-    Yloc = []
-    Xsad = []
-    Ysad = []
-    Xen = []
-    Yen = []
-    reac.add_left(-1)
-    prod.add_left(-1)
-    sdata.xllist.append(reac)
-    sdata.yllist.append(prod)
-    sdata.xslist.append(reac)
-    sdata.yslist.append(prod)
-    # DATABASE
+def w20init():
     for ip in range(itin.npop):
-        (xsad, vx) = gen_rsaddle(reac)
-        (ysad, vy) = gen_rsaddle(prod)
-        # update saddle point identical number
-        xid = update_iden(sdata.xslist, xsad)
-        yid = update_iden(sdata.yslist, ysad)
-        xsad.set_iden(xid)
-        ysad.set_iden(yid)
-        xsad.set_sm('S')
-        ysad.set_sm('S')
-        xsad.add_left(reac.get_iden())
-        ysad.add_left(prod.get_iden())
-        reac.add_right(xid)
-        prod.add_right(yid)
-        gmod = get_0mode()
-        try:
-            xloc = gopt(xsad, gmod)
-        except:
-            xloc = cp(reac)
-        try:
-            yloc = gopt(ysad, gmod)
-        except:
-            yloc = prod
-        xid = update_iden(sdata.xllist, xloc)
-        yid = update_iden(sdata.yllist, yloc)
-        xloc.set_iden(xid)
-        yloc.set_iden(yid)
-        xloc.set_sm('M')
-        yloc.set_sm('M')
-        xloc.add_left(xsad.get_iden())
-        yloc.add_left(ysad.get_iden())
-        xsad.add_right(xid)
-        ysad.add_right(yid)
-        print "ZLOG: INIT STEP, IP %4d X SAD EN: %8.7E, X LOC EN: %8.7E" %\
-              (ip, xsad.get_e(), xloc.get_e())
-        print "ZLOG: INIT STEP, IP %4d Y SAD EN: %8.7E, Y LOC EN: %8.7E" %\
-              (ip, ysad.get_e(), yloc.get_e())
-        Xsad.append(xsad)
-        Ysad.append(ysad)
-        sdata.vx.append(vx)
-        sdata.vy.append(vy)
-        Xloc.append(xloc)
-        Yloc.append(yloc)
-        Xen.append(xsad.get_e())
-        Yen.append(ysad.get_e())
-        sdata.xllist.append(xloc)
-        sdata.yllist.append(yloc)
-        sdata.xslist.append(xsad)
-        sdata.yslist.append(ysad)
-        # the init pbest
-        sdata.pbestx.append(xloc)
-        sdata.pbesty.append(yloc)
-    sdata.xlocs.append(Xloc)
-    sdata.ylocs.append(Yloc)
+        xdir = 'Calx' + str(ip)
+        ydir = 'Caly' + str(ip)
+        os.system('mkdir -p ' + xdir)
+        os.system('mkdir -p ' + ydir)
+        sdata.xdirs.append(xdir)
+        sdata.ydirs.append(ydir)
+    for istep in range(itin.instep):
+        stepx = []
+        stepy = []
+        for i in range(itin.npop):
+            stepx.append(itdbase.Cobj())
+            stepy.append(itdbase.Cobj())
+        sdata.evox.append(stepx)
+        sdata.evoy.append(stepy)
 
+
+def prepdim(istep):
+    stepx = sdata.evox[istep]
+    stepy = sdata.evoy[istep]
+    for ip in range(itin.npop):
+        xdir = sdata.xdirs[ip]
+        ydir = sdata.ydirs[ip]
+        xpcar = xdir + '/PRESAD.vasp'
+        ypcar = ydir + '/PRESAD.vasp'
+        write_cell_to_vasp(sdata.reactant, xpcar)
+        write_cell_to_vasp(sdata.product, ypcar)
+        xmode = get_rmode()
+        ymode = get_rmode()
+        stepx[ip].v = cp(xmode)
+        stepy[ip].v = cp(ymode)
+        f = open(xdir + '/mode.zf', 'w')
+        pick.dump(xmode, f)
+        f.close()
+        f = open(ydir + '/mode.zf', 'w')
+        pick.dump(ymode, f)
+        f.close()
+        os.system('cp pbs_dim.sh ' + xdir + '/pbs.sh')
+        os.system('cp pbs_dim.sh ' + ydir + '/pbs.sh')
+
+
+def preploc(istep, xsets, ysets):
+    stepx = sdata.evox[istep]
+    stepy = sdata.evoy[istep]
+    for ip in range(itin.npop):
+        stepx[ip].sad = cp(xsets[ip])
+        stepy[ip].sad = cp(ysets[ip])
+        xid = update_iden(sdata.xslist, stepx[ip].sad)
+        yid = update_iden(sdata.xslist, stepy[ip].sad)
+        stepx[ip].sad.set_iden(xid)
+        stepy[ip].sad.set_iden(yid)
+        stepx[ip].sad.set_sm('S')
+        stepy[ip].sad.set_sm('S')
+        stepx[ip].sad.add_left(sdata.reactant.get_iden())
+        stepy[ip].sad.add_left(sdata.product.get_iden())
+        sdata.reactant.add_right(xid)
+        sdata.product.add_right(yid)
+        sdata.xslist.append(stepx[ip].sad)
+        sdata.yslist.append(stepy[ip].sad)
+
+        xdir = sdata.xdirs[ip]
+        ydir = sdata.ydirs[ip]
+        xpcar = xdir + '/POSCAR'
+        ypcar = ydir + '/POSCAR'
+        write_cell_to_vasp(stepx[ip].sad, xpcar)
+        write_cell_to_vasp(stepy[ip].sad, ypcar)
+        os.system('cp pbs_opt.sh ' + xdir + '/pbs.sh')
+        os.system('cp pbs_opt.sh ' + ydir + '/pbs.sh')
+
+
+def prepso(istep, xsets, ysets):
+    stepx = sdata.evox[istep]
+    stepy = sdata.evoy[istep]
+    for ip in range(itin.npop):
+        stepx[ip].loc = cp(xsets[ip])
+        stepy[ip].loc = cp(ysets[ip])
+        xid = update_iden(sdata.xllist, stepx[ip].loc)
+        yid = update_iden(sdata.yllist, stepy[ip].loc)
+        stepx[ip].loc.set_iden(xid)
+        stepy[ip].loc.set_iden(yid)
+        stepx[ip].loc.set_sm('M')
+        stepy[ip].loc.set_sm('M')
+        stepx[ip].loc.add_left(stepx[ip].sad.get_iden())
+        stepy[ip].loc.add_left(stepy[ip].sad.get_iden())
+
+        stepx[ip].sad.add_right(xid)
+        stepy[ip].sad.add_right(yid)
+        print "ZLOG: INIT STEP, IP %4d X SAD EN: %8.7E, X LOC EN: %8.7E" %\
+              (ip, stepx[ip].sad.get_e(), stepx[ip].loc.get_e())
+        print "ZLOG: INIT STEP, IP %4d Y SAD EN: %8.7E, Y LOC EN: %8.7E" %\
+              (ip, stepy[ip].sad.get_e(), stepy[ip].loc.get_e())
+        # Xen.append(xsad.get_e())
+        # Yen.append(ysad.get_e())
+        sdata.xllist.append(stepx[ip].loc)
+        sdata.yllist.append(stepy[ip].loc)
+        # the init pbest
+        # sdata.pbestx.append(xloc)
+        # sdata.pbesty.append(yloc)
+        sdata.pbestx.append(stepx[ip].loc)
+        sdata.pbesty.append(stepy[ip].loc)
+    # sdata.xlocs.append(Xloc)
+    # sdata.ylocs.append(Yloc)
+
+
+def wo():
+    istep = 0
+    reace = sdata.reactant.get_e()
+    print 'ZLOG, reace', reace
+    # Xloc = []
+    # Yloc = []
+    # Xsad = []
+    # Ysad = []
+    # Xen = []
+    # Yen = []
+    sdata.reactant.add_left(-1)
+    sdata.product.add_left(-1)
+    sdata.xllist.append(sdata.reactant)
+    sdata.yllist.append(sdata.product)
+    sdata.xslist.append(sdata.reactant)
+    sdata.yslist.append(sdata.product)
+    # DATABASE
+
+    prepdim(istep)
+
+    jobids = pushjob()
+    if checkjob(jobids) == 0:
+        (xsets, ysets) = pulljob()
+    else:
+        return 100
+
+    preploc(istep, xsets, ysets)
+
+    jobids = pushjob()
+    if checkjob(jobids) == 0:
+        (xsets, ysets) = pulljob()
+    else:
+        return 100
+
+    prepso(istep, xsets, ysets)
+    stepx = sdata.evox[istep]
+    stepy = sdata.evoy[istep]
     xydist = []
     for ix in range(itin.npop):
-        fpx = Xloc[ix].get_lfp()
+        fpx = stepx[ix].loc.get_lfp()
         # ex = Xsad[ix].get_e() - reace
-        ex = get_barrier(sdata.xllist, sdata.xslist, reac, Xloc[ix])
+        ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
+                         stepx[ix].loc)
         for iy in range(itin.npop):
-            fpy = Yloc[iy].get_lfp()
+            fpy = stepy[iy].loc.get_lfp()
             # ey = Ysad[iy].get_e() - reace
-            ey = get_barrier(sdata.yllist, sdata.yslist, prod, Yloc[iy])
+            ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
+                             stepy[iy].loc)
             ee = max(ex, ey)
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
             # mdist for multiobjective opt
@@ -110,11 +187,13 @@ def wo(reac, prod):
             print 'ZLOG: mdist, dist, log(dist), ee',\
                   mdist, dist, np.log(dist), ee
             xydist.append((mdist, (ix, iy), dist, ee))
-    xydistSort = sorted(xydist,  key=lambda x: x[0])
+    xydistSort = sorted(xydist, key=lambda x: x[0])
     sdata.bestdist = xydistSort[0][2]
     sdata.bestmdist = xydistSort[0][0]
-    sdata.gbestx = cp(Xloc[xydistSort[0][1][0]])
-    sdata.gbesty = cp(Yloc[xydistSort[0][1][1]])
+    # sdata.gbestx = cp(Xloc[xydistSort[0][1][0]])
+    # sdata.gbesty = cp(Yloc[xydistSort[0][1][1]])
+    sdata.gbestx = cp(stepx[xydistSort[0][1][0]].loc)
+    sdata.gbesty = cp(stepy[xydistSort[0][1][1]].loc)
     print "ZLOG: INIT STEP, bestDist: %8.7E, bestmD: %8.7E, X-Y: %4d %4d" %\
           (xydistSort[0][2], xydistSort[0][0],
            xydistSort[0][1][0], xydistSort[0][1][1])
@@ -122,14 +201,17 @@ def wo(reac, prod):
     # update pdist x
     for ix in range(itin.npop):
         xytdist = []
-        fpx = Xloc[ix].get_lfp()
+        # fpx = Xloc[ix].get_lfp()
+        fpx = stepx[ix].loc.get_lfp()
         # ex = Xsad[ix].get_e() - reace
-        ex = get_barrier(sdata.xllist, sdata.xslist, reac, Xloc[ix])
+        # ex = get_barrier(sdata.xllist, sdata.xslist, reac, Xloc[ix])
+        ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
+                         stepx[ix].loc)
         for iy in range(len(sdata.yllist)):
             fpy = sdata.yllist[iy].get_lfp()
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
             # ey = sdata.yslist[iy].get_e() - reace
-            ey = get_barrier(sdata.yllist, sdata.yslist, prod,
+            ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
                              sdata.yllist[iy])
             ee = max(ex, ey)
             if dist < 1e-4:
@@ -146,14 +228,17 @@ def wo(reac, prod):
     # update pdist y
     for iy in range(itin.npop):
         yxtdist = []
-        fpy = Yloc[iy].get_lfp()
+        # fpy = Yloc[iy].get_lfp()
+        fpy = stepy[iy].loc.get_lfp()
         # ey = Ysad[iy].get_e() - reace
-        ey = get_barrier(sdata.yllist, sdata.yslist, prod, Yloc[iy])
+        # ey = get_barrier(sdata.yllist, sdata.yslist, prod, Yloc[iy])
+        ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
+                         stepy[iy].loc)
         for ix in range(len(sdata.xllist)):
             fpx = sdata.xllist[ix].get_lfp()
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
             # ex = sdata.xslist[ix].get_e() - reace
-            ex = get_barrier(sdata.xllist, sdata.xslist, reac,
+            ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
                              sdata.xllist[ix])
             ee = max(ex, ey)
             if dist < 1e-4:
@@ -173,88 +258,154 @@ def wo(reac, prod):
     for ip in range(itin.npop):
         sdata.ifpsox[ip] = True
         sdata.ifpsoy[ip] = True
+    dumpdata()
 
 
-def woo(reac, prod):
+def dumpdata():
+    f = open('evox.bin', 'w')
+    pick.dump(sdata.evox, f)
+    f.close()
+    f = open('evoy.bin', 'w')
+    pick.dump(sdata.evoy, f)
+    f.close()
+    f = open('xslist.bin', 'w')
+    pick.dump(sdata.xslist, f)
+    f.close()
+    f = open('xllist.bin', 'w')
+    pick.dump(sdata.xllist, f)
+    f.close()
+    f = open('yslist.bin', 'w')
+    pick.dump(sdata.yslist, f)
+    f.close()
+    f = open('yllist.bin', 'w')
+    pick.dump(sdata.yllist, f)
+    f.close()
+
+
+def woo():
     # init step
-    reace = reac.get_e()
-    wo(reac, prod)
+    # reace = sdata.reactant.get_e()
+    wo()
     # pso step
-    for istep in range(itin.instep):
-        Xloc = []
-        Yloc = []
-        Xsad = []
-        Ysad = []
-        xlocs = sdata.xlocs[istep]
-        ylocs = sdata.ylocs[istep]
+
+    for istep in range(1, itin.instep):
+        # Xloc = []
+        # Yloc = []
+        # Xsad = []
+        # Ysad = []
+        # xlocs = sdata.xlocs[istep]
+        # ylocs = sdata.ylocs[istep]
+        stepx = sdata.evox[istep]
+        stepy = sdata.evoy[istep]
+        pstepx = sdata.evox[istep - 1]
+        pstepy = sdata.evoy[istep - 1]
         for ip in range(itin.npop):
-            if os.path.isfile('CSTOP'): return
-            xloc = xlocs[ip]
-            yloc = ylocs[ip]
+            if os.path.isfile('CSTOP'):
+                return
+            # xloc = xlocs[ip]
+            # yloc = ylocs[ip]
             if sdata.ifpsox[ip]:
-                (xsad, vx) = gen_psaddle('x', xloc, istep, ip)
+                # (xsad, vx) = gen_psaddle('x', xloc, istep, ip)
+                xmode = gen_pmode('x', pstepx[ip].loc, istep, ip)
             else:
-                (xsad, vx) = gen_rsaddle(xloc)
+                # (xsad, vx) = gen_rsaddle(xloc)
+                xmode = get_rmode()
             if sdata.ifpsoy[ip]:
-                (ysad, vy) = gen_psaddle('y', yloc, istep, ip)
+                # (ysad, vy) = gen_psaddle('y', yloc, istep, ip)
+                ymode = gen_pmode('y', pstepy[ip].loc, istep, ip)
             else:
-                (ysad, vy) = gen_rsaddle(yloc)
-            xid = update_iden(sdata.xslist, xsad)
-            yid = update_iden(sdata.yslist, ysad)
-            xsad.set_iden(xid)
-            ysad.set_iden(yid)
-            xloc.add_right(xid)
-            yloc.add_right(yid)
-            xsad.set_sm('S')
-            ysad.set_sm('S')
-            xsad.add_left(xloc.get_iden())
-            ysad.add_left(yloc.get_iden())
-            sdata.vx[ip] = cp(vx)
-            sdata.vy[ip] = cp(vy)
-            Xsad.append(xsad)
-            Ysad.append(ysad)
-            gmod = get_0mode()
-            try:
-                xxloc = gopt(xsad, gmod)
-            except:
-                xxloc = cp(xloc)
-            try:
-                yyloc = gopt(ysad, gmod)
-            except:
-                yyloc = cp(yloc)
-            xid = update_iden(sdata.xllist, xxloc)
-            yid = update_iden(sdata.yllist, yyloc)
-            xxloc.set_iden(xid)
-            yyloc.set_iden(yid)
-            xxloc.set_sm('M')
-            yyloc.set_sm('M')
-            xxloc.add_left(xsad.get_iden())
-            yyloc.add_left(ysad.get_iden())
-            xsad.add_right(xid)
-            ysad.add_right(yid)
-            Xloc.append(xxloc)
-            Yloc.append(yyloc)
-            sdata.xllist.append(xxloc)
-            sdata.yllist.append(yyloc)
-            sdata.xslist.append(xsad)
-            sdata.yslist.append(ysad)
+                # (ysad, vy) = gen_rsaddle(yloc)
+                ymode = get_rmode()
+
+            xdir = sdata.xdirs[ip]
+            ydir = sdata.ydirs[ip]
+            xpcar = xdir + '/PRESAD.vasp'
+            ypcar = ydir + '/PRESAD.vasp'
+            write_cell_to_vasp(pstepx[ip].loc, xpcar)
+            write_cell_to_vasp(pstepy[ip].loc, ypcar)
+            stepx[ip].v = cp(xmode)
+            stepy[ip].v = cp(ymode)
+            f = open(xdir + '/mode.zf', 'w')
+            pick.dump(xmode, f)
+            f.close()
+            f = open(ydir + '/mode.zf', 'w')
+            pick.dump(ymode, f)
+            f.close()
+            os.system('cp pbs_dim.sh ' + xdir + '/pbs.sh')
+            os.system('cp pbs_dim.sh ' + ydir + '/pbs.sh')
+
+        jobids = pushjob()
+        if checkjob(jobids) == 0:
+            (xsets, ysets) = pulljob()
+        else:
+            return 100
+
+        for ip in range(itin.npop):
+            stepx[ip].sad = cp(xsets[ip])
+            stepy[ip].sad = cp(ysets[ip])
+            xid = update_iden(sdata.xslist, stepx[ip].sad)
+            yid = update_iden(sdata.xslist, stepy[ip].sad)
+            stepx[ip].sad.set_iden(xid)
+            stepy[ip].sad.set_iden(yid)
+            pstepx[ip].loc.add_right(xid)
+            pstepy[ip].loc.add_right(yid)
+            stepx[ip].sad.set_sm('S')
+            stepy[ip].sad.set_sm('S')
+            stepx[ip].sad.add_left(pstepx[ip].loc.get_iden())
+            stepy[ip].sad.add_left(pstepy[ip].loc.get_iden())
+            sdata.xslist.append(stepx[ip].sad)
+            sdata.yslist.append(stepy[ip].sad)
+
+            xdir = sdata.xdirs[ip]
+            ydir = sdata.ydirs[ip]
+            xpcar = xdir + '/POSCAR'
+            ypcar = ydir + '/POSCAR'
+            write_cell_to_vasp(stepx[ip].sad, xpcar)
+            write_cell_to_vasp(stepy[ip].sad, ypcar)
+            os.system('cp pbs_opt.sh ' + xdir + '/pbs.sh')
+            os.system('cp pbs_opt.sh ' + ydir + '/pbs.sh')
+
+        jobids = pushjob()
+        if checkjob(jobids) == 0:
+            (xsets, ysets) = pulljob()
+        else:
+            return 100
+
+        for ip in range(itin.npop):
+            stepx[ip].loc = cp(xsets[ip])
+            stepy[ip].loc = cp(ysets[ip])
+            xid = update_iden(sdata.xllist, stepx[ip].loc)
+            yid = update_iden(sdata.yllist, stepy[ip].loc)
+            stepx[ip].loc.set_iden(xid)
+            stepy[ip].loc.set_iden(yid)
+            stepx[ip].loc.set_sm('M')
+            stepy[ip].loc.set_sm('M')
+            stepx[ip].loc.add_left(stepx[ip].sad.get_iden())
+            stepy[ip].loc.add_left(stepy[ip].sad.get_iden())
+            stepx[ip].sad.add_right(xid)
+            stepy[ip].sad.add_right(yid)
+
             print "ZLOG: STEP %4d, IP %4d X SAD EN: %8.7E, X LOC EN: %8.7E" %\
-                  (istep, ip, xsad.get_e(), xxloc.get_e())
+                  (istep, ip, stepx[ip].sad.get_e(), stepx[ip].loc.get_e())
             print "ZLOG: STEP %4d, IP %4d Y SAD EN: %8.7E, Y LOC EN: %8.7E" %\
-                  (istep, ip, ysad.get_e(), yyloc.get_e())
+                  (istep, ip, stepy[ip].sad.get_e(), stepy[ip].loc.get_e())
+            # Xen.append(xsad.get_e())
+            # Yen.append(ysad.get_e())
+            sdata.xllist.append(stepx[ip].loc)
+            sdata.yllist.append(stepy[ip].loc)
 
         # update gbest
         xyldist = []
         for ix in range(len(sdata.xllist)):
             fpx = sdata.xllist[ix].get_lfp()
             # ex = sdata.xslist[ix].get_e() - reace
-            ex = get_barrier(sdata.xllist, sdata.xslist, reac,
+            ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
                              sdata.xllist[ix])
             for iy in range(len(sdata.yllist)):
                 fpy = sdata.yllist[iy].get_lfp()
                 (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
                 # ey = sdata.yslist[iy].get_e() - reace
-                ey = get_barrier(sdata.yllist, sdata.yslist, prod,
+                ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
                                  sdata.yllist[iy])
                 ee = max(ex, ey)
                 if dist < 1e-4:
@@ -279,20 +430,21 @@ def woo(reac, prod):
         print "ZLOG: Y %d SAD-E: %8.7E LOC-E: %8.7E" % \
               (iy, sdata.yslist[iy].get_e(), sdata.yllist[iy].get_e())
 
-        write_de(xyldist, reac.get_e())
+        write_de(xyldist, sdata.reactant.get_e())
 
         # updata pbest
         xydist = []
         for ix in range(itin.npop):
-            fpx = Xloc[ix].get_lfp()
+            fpx = stepx[ix].loc.get_lfp()
             # ex = Xsad[ix].get_e() - reace
-            ex = get_barrier(sdata.xllist, sdata.xslist, reac, Xloc[ix])
+            ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
+                             stepx[ix].loc)
             xytdist = []
             for iy in range(len(sdata.yllist)):
                 fpy = sdata.yllist[iy].get_lfp()
                 (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
                 # ey = sdata.yslist[iy].get_e() - reace
-                ey = get_barrier(sdata.yllist, sdata.yslist, prod,
+                ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
                                  sdata.yllist[iy])
                 ee = max(ex, ey)
                 if dist < 1e-4:
@@ -309,20 +461,21 @@ def woo(reac, prod):
             # get the best dist for each particle in the pop
             xydist.append(xytbestdist)
             if xytbestdist < sdata.pdistx[ix]:
-                sdata.pbestx[ix] = cp(Xloc[ix])
+                sdata.pbestx[ix] = cp(stepx[ix].loc)  # cp(Xloc[ix])
                 sdata.pdistx[ix] = xytbestdist
 
         yxdist = []
         for iy in range(itin.npop):
-            fpy = Yloc[iy].get_lfp()
+            fpy = stepy[iy].loc.get_lfp()
             # ey = Ysad[iy].get_e() - reace
-            ey = get_barrier(sdata.yllist, sdata.yslist, prod, Yloc[iy])
+            ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
+                             stepy[iy].loc)
             yxtdist = []
             for ix in range(len(sdata.xllist)):
                 fpx = sdata.xllist[ix].get_lfp()
                 (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
                 # ex = sdata.xslist[ix].get_e() - reace
-                ex = get_barrier(sdata.xllist, sdata.xslist, reac,
+                ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
                                  sdata.xllist[ix])
                 ee = max(ex, ey)
                 if dist < 1e-4:
@@ -337,15 +490,72 @@ def woo(reac, prod):
             yxtbestdist = yxtdistSort[0][0]
             yxdist.append(yxtbestdist)
             if yxtbestdist < sdata.pdisty[iy]:
-                sdata.pbesty[iy] = cp(Yloc[iy])
+                sdata.pbesty[iy] = cp(stepy[iy].loc)  # cp(Yloc[iy])
                 sdata.pdisty[iy] = yxtbestdist
 
-        sdata.xlocs.append(Xloc)
-        sdata.ylocs.append(Yloc)
+        # sdata.xlocs.append(Xloc)
+        # sdata.ylocs.append(Yloc)
 
         # if abs(bestdist) < itin.dist:
         #     print "ZLOG: CONVERGED!"
         #     break
+    dumpdata()
+
+
+def pushjob():
+    jobids = []
+    if itin.client == 'pbs':
+        cdirs = sdata.xdirs + sdata.ydirs
+        cwdn = os.getcwd()
+        for cdir in cdirs:
+            ddir = cwdn + '/' + cdir
+            f = open('sub.sh', 'w')
+            f.write("ssh memex.local << !\n")
+            f.write("cd " + ddir + "\n")
+            f.write("qsub pbs.sh\n")
+            f.write("!\n")
+            f.close()
+            jbuff = os.popen('sh sub.sh').read()
+            # this is desinged for memex cluster
+            jid = jbuff.strip()
+            jobids.append(jid)
+    elif itin.client == 'local':
+        cdirs = sdata.xdirs + sdata.ydirs
+        for cdir in cdirs:
+            print 'ZLOG: START JOB in dir:', cdir
+            os.system('cd ' + cdir + '; sh pbs.sh')
+    else:
+        print 'ZLOG: ERROR client'
+        sys.exe(0)
+    print 'ZLOG: jobids', jobids
+    return jobids
+
+
+def pulljob():
+    xsets = []
+    ysets = []
+    for ip in range(itin.npop):
+        xdir = sdata.xdirs[ip]
+        ydir = sdata.ydirs[ip]
+        try:
+            f = open(xdir + '/pcell.bin')
+            xx = pick.load(f)
+            f.close()
+        except:
+            print 'ZLOG: fail to pull x pcell.bin'
+            xx = set_cell_from_vasp(xdir + '/POSCAR.F')
+            xx.set_e(31118.)
+        try:
+            f = open(ydir + '/pcell.bin')
+            yy = pick.load(f)
+            f.close()
+        except:
+            print 'ZLOG: fail to pull y pcell.bin'
+            yy = set_cell_from_vasp(xdir + '/POSCAR.F')
+            yy.set_e(31118.)
+        xsets.append(xx)
+        ysets.append(yy)
+    return (xsets, ysets)
 
 
 def update_iden(xlist, cell):
@@ -361,6 +571,28 @@ def update_iden(xlist, cell):
         oldids.append(idx)
     idc = max(oldids) + 1
     return idc
+
+
+def gen_pmode(xy, xcell, istep, ip):
+    if xy is 'x':
+        pbest = cp(sdata.pbestx[ip])
+        gbest = cp(sdata.gbestx)
+        v0 = cp(sdata.evox[istep - 1][ip].v)
+    elif xy is 'y':
+        pbest = cp(sdata.pbesty[ip])
+        gbest = cp(sdata.gbesty)
+        v0 = cp(sdata.evoy[istep - 1][ip].v)
+    else:
+        print 'ZOUT ERROR xy'
+
+    c1 = 2.0
+    c2 = 2.0
+    w = 0.9 - 0.5 * (istep) / itin.instep
+    (r1, r2) = np.random.rand(2)
+    # print pbest.get_lattice()
+    # print xcell.get_lattice()
+    v = v0 * w + c1 * r1 * getx(pbest, xcell) + c2 * r2 * getx(gbest, xcell)
+    return v
 
 
 def gen_psaddle(xy, xcell, istep, ip):
@@ -412,12 +644,12 @@ def connect_path(ine, mlisted, slisted, xm, xend, fatherids, xpath):
             fatherids.append(sp_id)
             sp = getx_fromid(sp_id, slisted)
             e = sp.get_e() - ine
-            xpath.create_node('Saddle'+str(sp.get_iden())+'E'+str(e),
+            xpath.create_node('Saddle' + str(sp.get_iden()) + 'E' + str(e),
                               sp.get_nid(), parent=xm.get_nid(), data=sp)
             for m_id in sp.get_left():
                 if m_id == 0:
                     # connect the xend
-                    xend.set_nid(xend.get_nid()-1)
+                    xend.set_nid(xend.get_nid() - 1)
                     xpath.create_node('END', xend.get_nid(),
                                       parent=sp.get_nid(), data=xend)
                     # print '# ZLOG: CONNECTED MID', m_id
@@ -425,9 +657,11 @@ def connect_path(ine, mlisted, slisted, xm, xend, fatherids, xpath):
                     # print '# ZLOG: SON ID', m_id
                     mp = getx_fromid(m_id, mlisted)
                     e = mp.get_e() - ine
-                    xpath.create_node('Minima' + str(mp.get_iden())+'E'+str(e),
-                                      mp.get_nid(), parent=sp.get_nid(), data=mp)
-                    connect_path(ine, mlisted, slisted, mp, xend, fatherids, xpath)
+                    xpath.create_node('Minima' + str(mp.get_iden()) + 'E' +
+                                      str(e), mp.get_nid(),
+                                      parent=sp.get_nid(), data=mp)
+                    connect_path(ine, mlisted, slisted, mp,
+                                 xend, fatherids, xpath)
     return 0
 
 
@@ -456,6 +690,12 @@ def mergelist(xlist):
             # print xc.get_iden()
             if xc.get_iden() == idt:
                 simit.append(xc)
+                # print 'lt'
+                # print lt
+                # print xc.get_left()
+                # print 'rt'
+                # print rt
+                # print xc.get_right()
                 lt += xc.get_left()
                 rt += xc.get_right()
                 xt = cp(xc)
@@ -542,11 +782,12 @@ def get_barrier(mlist, slist, startp, endp):
     return mxe
 
 
-
-
 def main():
     (reac, prod) = initrun()
-    woo(reac, prod)
+    sdata.reactant = reac
+    sdata.product = prod
+    w20init()
+    woo()
     f = open('xm.dat', 'w')
     pick.dump(sdata.xllist, f)
     f.close()
@@ -668,7 +909,7 @@ def utest2():
             xpath = Tree()
             fatherids = []
             xx.set_nid(0)
-            xpath.create_node('Minima'+str(xx.get_iden()), 0, data=xx)
+            xpath.create_node('Minima' + str(xx.get_iden()), 0, data=xx)
             sdata.nidp = 0
             connect_path(ine, xmlisted, xslisted, xx, xend, fatherids, xpath)
 
@@ -676,7 +917,7 @@ def utest2():
             ypath = Tree()
             fatherids = []
             yy.set_nid(0)
-            ypath.create_node('Minima'+str(yy.get_iden()), 0, data=yy)
+            ypath.create_node('Minima' + str(yy.get_iden()), 0, data=yy)
             sdata.nidp = 0
             connect_path(ine, ymlisted, yslisted, yy, yend, fatherids, ypath)
 
@@ -754,27 +995,6 @@ def utest2():
     xpath.save2file('xp.dat')
 
 
-
-
-
-
 if __name__ == "__main__":
     main()
     # utest2()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

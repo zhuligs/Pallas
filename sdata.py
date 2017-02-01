@@ -5,7 +5,7 @@ localhistory = []
 
 types = np.array([0])
 
-wdis=[]
+wdis = []
 wmodes = []
 wsads = []
 wlocs = []
@@ -22,7 +22,6 @@ fitpbest = []
 x0s = []
 
 ifpso = []
-
 
 xslist = []
 yslist = []
@@ -57,3 +56,8 @@ reace = 0.0
 evodata = []
 product = None
 reactant = None
+xdirs = []
+ydirs = []
+
+evox = []
+evoy = []

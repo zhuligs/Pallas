@@ -199,6 +199,14 @@ class ConnectObj:
         self.premin = None
         self.rightmin = None
         self.psomode = None
+        self.rmdist = 100.
+
+
+class Cobj:
+    def __init__(self):
+        self.v = None
+        self.sad = None
+        self.loc = None
 
 
 def lat2vec(lat):

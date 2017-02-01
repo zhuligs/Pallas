@@ -1,7 +1,9 @@
 #!/usr/bin/python -u
 #
 
-import sys, os, time
+import sys
+import os
+import time
 from copy import deepcopy as cp
 import numpy as np
 import cPickle as pick
@@ -12,18 +14,44 @@ import itin
 import itdbase
 import sdata
 from util import vunit, vrand
-from itin import npop
 from itin import instep as total_step
 from zfunc import write_cell_to_vasp, set_cell_from_vasp, getx
 
+from oljob import gopt_lammps
+
 
 def initrun():
-    f = open('prod.bin')
-    sdata.product = pick.load(f)
-    f.close()
-    f = open('reac.bin')
-    sdata.reactant = pick.load(f)
-    f.close()
+    if os.path.isfile('prod.bin'):
+        f = open('prod.bin')
+        sdata.product = pick.load(f)
+        f.close()
+    else:
+        # prod0 = set_cell_from_vasp('P.vasp')
+        if os.path.isfile('P.vasp'):
+            os.system('cp P.vasp POSCAR')
+            sdata.product = gopt_lammps()
+            f = open('prod.bin', 'w')
+            pick.dump(sdata.product, f)
+            f.close()
+        else:
+            print 'ZLOG: Error: P.vasp'
+            sys.exit(1)
+
+    if os.path.isfile('reac.bin'):
+        f = open('reac.bin')
+        sdata.reactant = pick.load(f)
+        f.close()
+    else:
+        if os.path.isfile('R.vasp'):
+            os.system('cp R.vasp POSCAR')
+            sdata.reactant = gopt_lammps()
+            f = open('reac.bin', 'w')
+            pick.dump(sdata.reactant, f)
+            f.close()
+        else:
+            print 'ZLOG: Error: R.vasp'
+            sys.exit(1)
+
     lp = sdata.product.get_lfp()
     ls = sdata.product.get_lfp()
     sdata.types = sdata.reactant.get_types()
@@ -42,7 +70,7 @@ def initrun():
 
 
 def foo(xend, istep):
-    energy_xend = xend.get_e()
+    # energy_xend = xend.get_e()
     stepdata = sdata.evodata[istep]
     for ip in range(itin.npop):
         cdir = 'Cal' + str(ip)
@@ -69,7 +97,7 @@ def foo(xend, istep):
         return 100
 
     for ip in range(itin.npop):
-        print 'energy', stepdata[ip].rightmin.get_e()
+        print 'ZLOG: energy', stepdata[ip].rightmin.get_e()
     # sys.exit(1)
 
     for ip in range(itin.npop):
@@ -93,10 +121,10 @@ def foo(xend, istep):
 
     # DEBUG
     for ip in range(itin.npop):
-        print 'IP ', ip
-        print stepdata[ip].leftmin.get_e()
-        print stepdata[ip].saddle.get_e()
-        print stepdata[ip].rightmin.get_e()
+        print 'ZLOG: IP ', ip
+        print 'ZLOG:', stepdata[ip].leftmin.get_e()
+        print 'ZLOG:', stepdata[ip].saddle.get_e()
+        print 'ZLOG:', stepdata[ip].rightmin.get_e()
     print '###### END #####'
 
     # RETURN stepdata
@@ -130,7 +158,7 @@ def interpolatesad(leftmin, rightmin):
     os.system(itin.makenebcom + ' leftpos rightpos 1')
     nebcell = set_cell_from_vasp('01/POSCAR')
     neblat = nebcell.get_lattice()
-    tmode = np.zeros((itin.nat+3, 3))
+    tmode = np.zeros((itin.nat + 3, 3))
     tmode[:-3] = rightmin.get_positions() - leftmin.get_positions()
     tcell = cp(leftmin)
     tcell.set_lattice(neblat)
@@ -142,7 +170,7 @@ def interpolatesad(leftmin, rightmin):
 def apply_mode(xcell, mode):
     natom = itin.nat
     vol = xcell.get_volume()
-    jacob = (vol / natom)**(1.0/3.0) * natom**0.5
+    jacob = (vol / natom)**(1.0 / 3.0) * natom**0.5
     latt = xcell.get_lattice() + np.dot(xcell.get_lattice(), mode[-3:] / jacob)
     xcell.set_lattice(latt)
     xcell.set_positions(xcell.get_positions() + mode[:-3])
@@ -171,11 +199,20 @@ def get_dimfile_ready(istep):
 
 def pushjob(istep):
     jobids = []
-    for ip in range(itin.npop):
-        cdir = 'Cal' + str(ip)
-        jbuff = os.popen('cd ' + cdir + '; qsub pbs.sh').read()
-        jid = jbuff.strip()
-        jobids.append(jid)
+    if itin.client == 'pbs':
+        for ip in range(itin.npop):
+            cdir = 'Cal' + str(ip)
+            jbuff = os.popen('cd ' + cdir + '; qsub pbs.sh').read()
+            jid = jbuff.strip()
+            jobids.append(jid)
+    elif itin.client == 'local':
+        for ip in range(itin.npop):
+            cdir = 'Cal' + str(ip)
+            print 'ZLOG: JOB', istep, 'IP', ip
+            os.system('cd ' + cdir + '; sh pbs.sh')
+    else:
+        print 'ZLOG: ERROR client in pushjob'
+        sys.exit(10)
     return jobids
 
 
@@ -198,10 +235,10 @@ def checkids(jobids):
             for x in jbuff[1:]:
                 reminds.append(x.split()[0])
         except:
-            print 'except 1'
+            print 'ZLOG: except 1'
             return True
     else:
-        print 'except 2'
+        print 'ZLOG: except 2'
         return True
     finished = True
     for id in jobids:
@@ -212,6 +249,8 @@ def checkids(jobids):
 
 
 def checkjob(jobids):
+    if itin.client == 'local':
+        return 0
     finished = False
     while not finished:
         finished = checkids(jobids)
@@ -231,26 +270,41 @@ def pulljob(otyp, istep):
     if otyp == 'opt':
         for ip in range(itin.npop):
             cdir = 'Cal' + str(ip)
-            pcell = set_cell_from_vasp(cdir + '/CONTCAR')
-            try:
-                e = float(os.popen("awk '/free  energy/{print $5}' " + cdir +
-                    "/OUTCAR|tail -1").read())
-                h = itin.press * pcell.get_volume() / 1602.2 + e
-            except:
-                h = 31118.
-            pcell.set_e(h)
+            if itin.client == 'pbs':
+                pcell = set_cell_from_vasp(cdir + '/CONTCAR')
+                try:
+                    e = float(os.popen("awk '/free  energy/{print $5}' " +
+                                       cdir + "/OUTCAR|tail -1").read())
+                    h = itin.press * pcell.get_volume() / 1602.2 + e
+                except:
+                    h = 31118.
+                pcell.set_e(h)
+            elif itin.client == 'local':
+                f = open(cdir + '/pcell.bin')
+                pcell = pick.load(f)
+                f.close()
+            else:
+                print 'ZLOG ERROR client in pulljob 1'
             sdata.evodata[istep][ip].rightmin = cp(pcell)
-            sdata.evodata[istep+1][ip].leftmin = cp(pcell)
+            sdata.evodata[istep + 1][ip].leftmin = cp(pcell)
     elif otyp == 'sad':
         for ip in range(itin.npop):
             cdir = 'Cal' + str(ip)
-            pcell = set_cell_from_vasp(cdir + '/CONTCAR')
-            try:
-                e = float(os.popen("grep DIMERENERGY " + cdir + "/dvjob.out |tail -1").read().split()[1])
-                h = itin.press * pcell.get_volume() / 1602.2 + e
-            except:
-                h = 31118.
-            pcell.set_e(h)
+            if itin.client == 'pbs':
+                pcell = set_cell_from_vasp(cdir + '/CONTCAR')
+                try:
+                    e = float(os.popen("grep DIMERENERGY " + cdir +
+                                       "/dvjob.out|tail -1").read().split()[1])
+                    h = itin.press * pcell.get_volume() / 1602.2 + e
+                except:
+                    h = 31118.
+                pcell.set_e(h)
+            elif itin.client == 'local':
+                f = open(cdir + '/pcell.bin')
+                pcell = pick.load(f)
+                f.close()
+            else:
+                print 'ZLOG ERROR client in pulljob 2 '
             sdata.evodata[istep][ip].saddle = cp(pcell)
     else:
         print '# ZLOG: otyp error'
@@ -301,7 +355,7 @@ def evolution():
             f = open(cdir + '/pmode.zf', 'w')
             pick.dump(psomode, f)
             f.close()
-            preminima = apply_mode(stepdata[istep].leftmin, psomode)
+            preminima = apply_mode(stepdata[ip].leftmin, psomode)
             stepdata[ip].premin = cp(preminima)
             stepdata[ip].psomode = cp(psomode)
 
@@ -313,7 +367,7 @@ def evolution():
             return 100
 
         for ip in range(itin.npop):
-            print 'energy', stepdata[ip].rightmin.get_e()
+            print 'ZLOG: energy', stepdata[ip].rightmin.get_e()
 
         for ip in range(itin.npop):
             cdir = 'Cal' + str(ip)
@@ -344,8 +398,9 @@ def evolution():
         for ip in range(itin.npop):
             fpx = sdata.evodata[istep][ip].rightmin.get_lfp()
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpp, fpx)
-            print "# ZLOG: STEP %d IP %d DIST %7.4E" % (istep, ip, dist)
+            print "ZLOG: STEP %d IP %d DIST %7.4E" % (istep, ip, dist)
             dists.append(dist)
+            stepdata[ip].rmdist = dist
 
             if dist < sdata.fitpbest[ip]:
                 sdata.fitpbest[ip] = dist
@@ -367,7 +422,7 @@ def gen_psomode(x0, istep, ip):
     # c3 = 2.0
     w = 0.9 - 0.5 * (istep + 1) / itin.instep
     (r1, r2, r3) = np.random.rand(3)
-    v0 = sdata.evodata[istep-1][ip].psomode
+    v0 = sdata.evodata[istep - 1][ip].psomode
     pbest = sdata.pbests[ip]
     gbest = sdata.product
     difp = getx(pbest, x0)
@@ -398,7 +453,6 @@ def test1():
         print sdata.evodata[0][ip].psomode
 
 
-
 def test():
     initrun()
     f = open('reac.bin')
@@ -409,28 +463,3 @@ def test():
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
