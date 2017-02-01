@@ -36,7 +36,7 @@ def rundim_lammps():
     jacob = (vol/natom)**(1.0/3.0) * natom**0.5
     # mode = np.zeros((len(p)+3, 3))
     # mode = vrand(mode)
-    f = open('tmode.zf')
+    f = open('mode.zf')
     mode = pick.load(f)
     f.close()
     cellt = p.get_cell() + np.dot(p.get_cell(), mode[-3:]/jacob)

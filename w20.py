@@ -122,6 +122,8 @@ def prepso(istep, xsets, ysets):
         # the init pbest
         # sdata.pbestx.append(xloc)
         # sdata.pbesty.append(yloc)
+        sdata.pbestx.append(stepx[ip].loc)
+        sdata.pbesty.append(stepy[ip].loc)
     # sdata.xlocs.append(Xloc)
     # sdata.ylocs.append(Yloc)
 
@@ -486,6 +488,14 @@ def pushjob():
             # this is desinged for memex cluster
             jid = jbuff.strip()
             jobids.append(jid)
+    elif itin.client == 'local':
+        cdirs = sdata.xdirs + sdata.ydirs
+        for cdir in cdirs:
+            print 'ZLOG: START JOB in dir:', cdir
+            os.system('cd ' + cdir + '; sh pbs.sh')
+    else:
+        print 'ZLOG: ERROR client'
+        sys.exe(0)
     return jobids
 
 
@@ -724,8 +734,10 @@ def get_barrier(mlist, slist, startp, endp):
 
 def main():
     (reac, prod) = initrun()
+    sdata.reactant = reac
+    sdata.product = prod
     w20init()
-    woo(reac, prod)
+    woo()
     f = open('xm.dat', 'w')
     pick.dump(sdata.xllist, f)
     f.close()

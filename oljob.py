@@ -57,7 +57,7 @@ def gopt_lammps():
     # print p1box.get_potential_energy()
     try:
         dyn = FIRE(p1box, dt=0.1, maxmove=0.2, dtmax=0.2)
-        dyn.run(fmax=0.01, steps=2000)
+        dyn.run(fmax=0.001, steps=2000)
 
         io.write("CONTCAR", p1, format='vasp')
         pcell = set_cell_from_vasp("CONTCAR")
