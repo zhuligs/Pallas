@@ -258,6 +258,28 @@ def wo():
     for ip in range(itin.npop):
         sdata.ifpsox[ip] = True
         sdata.ifpsoy[ip] = True
+    dumpdata()
+
+
+def dumpdata():
+    f = open('evox.bin', 'w')
+    pick.dump(sdata.evox, f)
+    f.close()
+    f = open('evoy.bin', 'w')
+    pick.dump(sdata.evoy, f)
+    f.close()
+    f = open('xslist.bin', 'w')
+    pick.dump(sdata.xslist, f)
+    f.close()
+    f = open('xllist.bin', 'w')
+    pick.dump(sdata.xllist, f)
+    f.close()
+    f = open('yslist.bin', 'w')
+    pick.dump(sdata.yslist, f)
+    f.close()
+    f = open('yllist.bin', 'w')
+    pick.dump(sdata.yllist, f)
+    f.close()
 
 
 def woo():
@@ -284,13 +306,13 @@ def woo():
             # yloc = ylocs[ip]
             if sdata.ifpsox[ip]:
                 # (xsad, vx) = gen_psaddle('x', xloc, istep, ip)
-                xmode = gen_pmode('x', stepx[ip].loc, istep, ip)
+                xmode = gen_pmode('x', pstepx[ip].loc, istep, ip)
             else:
                 # (xsad, vx) = gen_rsaddle(xloc)
                 xmode = get_rmode()
             if sdata.ifpsoy[ip]:
                 # (ysad, vy) = gen_psaddle('y', yloc, istep, ip)
-                ymode = gen_pmode('y', stepy[ip].loc, istep, ip)
+                ymode = gen_pmode('y', pstepy[ip].loc, istep, ip)
             else:
                 # (ysad, vy) = gen_rsaddle(yloc)
                 ymode = get_rmode()
@@ -325,8 +347,8 @@ def woo():
             yid = update_iden(sdata.xslist, stepy[ip].sad)
             stepx[ip].sad.set_iden(xid)
             stepy[ip].sad.set_iden(yid)
-            pstepx[ip].loc.set_right(xid)
-            pstepy[ip].loc.set_right(yid)
+            pstepx[ip].loc.add_right(xid)
+            pstepy[ip].loc.add_right(yid)
             stepx[ip].sad.set_sm('S')
             stepy[ip].sad.set_sm('S')
             stepx[ip].sad.add_left(pstepx[ip].loc.get_iden())
@@ -363,10 +385,10 @@ def woo():
             stepx[ip].sad.add_right(xid)
             stepy[ip].sad.add_right(yid)
 
-            print "ZLOG: INIT STEP, IP %4d X SAD EN: %8.7E, X LOC EN: %8.7E" %\
-                  (ip, stepx[ip].sad.get_e(), stepx[ip].loc.get_e())
-            print "ZLOG: INIT STEP, IP %4d Y SAD EN: %8.7E, Y LOC EN: %8.7E" %\
-                  (ip, stepy[ip].sad.get_e(), stepy[ip].loc.get_e())
+            print "ZLOG: STEP %4d, IP %4d X SAD EN: %8.7E, X LOC EN: %8.7E" %\
+                  (istep, ip, stepx[ip].sad.get_e(), stepx[ip].loc.get_e())
+            print "ZLOG: STEP %4d, IP %4d Y SAD EN: %8.7E, Y LOC EN: %8.7E" %\
+                  (istep, ip, stepy[ip].sad.get_e(), stepy[ip].loc.get_e())
             # Xen.append(xsad.get_e())
             # Yen.append(ysad.get_e())
             sdata.xllist.append(stepx[ip].loc)
@@ -477,14 +499,23 @@ def woo():
         # if abs(bestdist) < itin.dist:
         #     print "ZLOG: CONVERGED!"
         #     break
+    dumpdata()
 
 
 def pushjob():
     jobids = []
     if itin.client == 'pbs':
         cdirs = sdata.xdirs + sdata.ydirs
+        cwdn = os.getcwd()
         for cdir in cdirs:
-            jbuff = os.popen('cd ' + cdir + '; qsub pbs.sh').read()
+            ddir = cwdn + '/' + cdir
+            f = open('sub.sh', 'w')
+            f.write("ssh memex.local << !\n")
+            f.write("cd " + ddir + "\n")
+            f.write("qsub pbs.sh\n")
+            f.write("!\n")
+            f.close()
+            jbuff = os.popen('sh sub.sh').read()
             # this is desinged for memex cluster
             jid = jbuff.strip()
             jobids.append(jid)
@@ -496,6 +527,7 @@ def pushjob():
     else:
         print 'ZLOG: ERROR client'
         sys.exe(0)
+    print 'ZLOG: jobids', jobids
     return jobids
 
 
@@ -505,12 +537,22 @@ def pulljob():
     for ip in range(itin.npop):
         xdir = sdata.xdirs[ip]
         ydir = sdata.ydirs[ip]
-        f = open(xdir + '/pcell.bin')
-        xx = pick.load(f)
-        f.close()
-        f = open(ydir + '/pcell.bin')
-        yy = pick.load(f)
-        f.close()
+        try:
+            f = open(xdir + '/pcell.bin')
+            xx = pick.load(f)
+            f.close()
+        except:
+            print 'ZLOG: fail to pull x pcell.bin'
+            xx = set_cell_from_vasp(xdir + '/POSCAR.F')
+            xx.set_e(31118.)
+        try:
+            f = open(ydir + '/pcell.bin')
+            yy = pick.load(f)
+            f.close()
+        except:
+            print 'ZLOG: fail to pull y pcell.bin'
+            yy = set_cell_from_vasp(xdir + '/POSCAR.F')
+            yy.set_e(31118.)
         xsets.append(xx)
         ysets.append(yy)
     return (xsets, ysets)
@@ -535,11 +577,11 @@ def gen_pmode(xy, xcell, istep, ip):
     if xy is 'x':
         pbest = cp(sdata.pbestx[ip])
         gbest = cp(sdata.gbestx)
-        v0 = cp(sdata.evox[istep - 1].v)
+        v0 = cp(sdata.evox[istep - 1][ip].v)
     elif xy is 'y':
         pbest = cp(sdata.pbesty[ip])
         gbest = cp(sdata.gbesty)
-        v0 = cp(sdata.evoy[istep - 1].v)
+        v0 = cp(sdata.evoy[istep - 1][ip].v)
     else:
         print 'ZOUT ERROR xy'
 
@@ -547,6 +589,8 @@ def gen_pmode(xy, xcell, istep, ip):
     c2 = 2.0
     w = 0.9 - 0.5 * (istep) / itin.instep
     (r1, r2) = np.random.rand(2)
+    # print pbest.get_lattice()
+    # print xcell.get_lattice()
     v = v0 * w + c1 * r1 * getx(pbest, xcell) + c2 * r2 * getx(gbest, xcell)
     return v
 
@@ -646,6 +690,12 @@ def mergelist(xlist):
             # print xc.get_iden()
             if xc.get_iden() == idt:
                 simit.append(xc)
+                # print 'lt'
+                # print lt
+                # print xc.get_left()
+                # print 'rt'
+                # print rt
+                # print xc.get_right()
                 lt += xc.get_left()
                 rt += xc.get_right()
                 xt = cp(xc)
