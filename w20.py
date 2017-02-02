@@ -301,6 +301,7 @@ def woo():
         pstepy = sdata.evoy[istep - 1]
         for ip in range(itin.npop):
             if os.path.isfile('CSTOP'):
+                dumpdata()
                 return
             # xloc = xlocs[ip]
             # yloc = ylocs[ip]
@@ -413,8 +414,8 @@ def woo():
                 else:
                     xdist = dist
                 mdist = np.log10(xdist) + ee
-                print 'ZLOG: mdist, dist, log(dist), ee',\
-                      mdist, dist, np.log(dist), ee
+                print 'ZLOG: mdist, dist, log(dist), ee,',\
+                      mdist, dist, np.log(dist), ee, 'G', ix, iy
                 xyldist.append([mdist, [ix, iy], dist, ee])
         xyldistSort = sorted(xyldist, key=lambda x: x[0])
         ix = xyldistSort[0][1][0]
@@ -453,7 +454,7 @@ def woo():
                     xdist = dist
                 mdist = np.log10(xdist) + ee
                 print 'ZLOG: mdist, dist, log(dist), ee',\
-                      mdist, dist, np.log(dist), ee
+                      mdist, dist, np.log(dist), ee, 'X', ix, iy, 'IP', istep
                 xytdist.append([mdist, iy])
             xytdistSort = sorted(xytdist, key=lambda x: x[0])
             xytbestdist = xytdistSort[0][0]
@@ -484,7 +485,7 @@ def woo():
                     xdist = dist
                 mdist = np.log10(xdist) + ee
                 print 'ZLOG: mdist, dist, log(dist), ee',\
-                      mdist, dist, np.log(dist), ee
+                      mdist, dist, np.log(dist), ee, 'Y', ix, iy, 'IP', istep
                 yxtdist.append([mdist, ix])
             yxtdistSort = sorted(yxtdist, key=lambda x: x[0])
             yxtbestdist = yxtdistSort[0][0]
@@ -499,7 +500,7 @@ def woo():
         # if abs(bestdist) < itin.dist:
         #     print "ZLOG: CONVERGED!"
         #     break
-    dumpdata()
+        dumpdata()
 
 
 def pushjob():
@@ -551,7 +552,7 @@ def pulljob():
             f.close()
         except:
             print 'ZLOG: fail to pull y pcell.bin'
-            yy = set_cell_from_vasp(xdir + '/POSCAR.F')
+            yy = set_cell_from_vasp(ydir + '/POSCAR.F')
             yy.set_e(31118.)
         xsets.append(xx)
         ysets.append(yy)

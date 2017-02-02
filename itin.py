@@ -1,4 +1,4 @@
-fpcut = 3.0
+fpcut = 4.5
 lmax = 0
 ntyp = 1
 nat = 8
