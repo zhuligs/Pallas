@@ -184,10 +184,10 @@ def wo():
             else:
                 xdist = dist
             mdist = np.log10(xdist) + ee
-            print 'ZLOG: mdist, dist, log(dist), ee',\
-                  mdist, dist, np.log(dist), ee
+            # print 'ZLOG: mdist, dist, log(dist), ee',\
+                  # mdist, dist, np.log(dist), ee
             xydist.append((mdist, (ix, iy), dist, ee))
-    xydistSort = sorted(xydist, key=lambda x: x[0])
+    xydistSort = sorted(xydist, key=lambda x: x[2])
     sdata.bestdist = xydistSort[0][2]
     sdata.bestmdist = xydistSort[0][0]
     # sdata.gbestx = cp(Xloc[xydistSort[0][1][0]])
@@ -205,23 +205,24 @@ def wo():
         fpx = stepx[ix].loc.get_lfp()
         # ex = Xsad[ix].get_e() - reace
         # ex = get_barrier(sdata.xllist, sdata.xslist, reac, Xloc[ix])
-        ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
-                         stepx[ix].loc)
+        # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
+                         # stepx[ix].loc)
         for iy in range(len(sdata.yllist)):
             fpy = sdata.yllist[iy].get_lfp()
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
             # ey = sdata.yslist[iy].get_e() - reace
-            ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
-                             sdata.yllist[iy])
-            ee = max(ex, ey)
+            # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
+                             # sdata.yllist[iy])
+            # ee = max(ex, ey)
+            ee = 0
             if dist < 1e-4:
                 xdist = 1e-4
             else:
                 xdist = dist
-            mdist = np.log10(xdist) + ee
-            print 'ZLOG: mdist, dist, log(dist), ee',\
-                  mdist, dist, np.log(dist), ee
-            xytdist.append(mdist)
+            # mdist = np.log10(xdist) + ee
+            # print 'ZLOG: mdist, dist, log(dist), ee',\
+            #       mdist, dist, np.log(dist), ee
+            xytdist.append(dist)
         xytdistb = sorted(xytdist)[0]
         sdata.pdistx.append(xytdistb)
 
@@ -232,23 +233,24 @@ def wo():
         fpy = stepy[iy].loc.get_lfp()
         # ey = Ysad[iy].get_e() - reace
         # ey = get_barrier(sdata.yllist, sdata.yslist, prod, Yloc[iy])
-        ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
-                         stepy[iy].loc)
+        # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
+                         # stepy[iy].loc)
         for ix in range(len(sdata.xllist)):
             fpx = sdata.xllist[ix].get_lfp()
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
             # ex = sdata.xslist[ix].get_e() - reace
-            ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
-                             sdata.xllist[ix])
-            ee = max(ex, ey)
+            # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
+                             # sdata.xllist[ix])
+            # ee = max(ex, ey)
+            ee = 0
             if dist < 1e-4:
                 xdist = 1e-4
             else:
                 xdist = dist
-            mdist = np.log10(xdist) + ee
-            print 'ZLOG: mdist, dist, log(dist), ee',\
-                  mdist, dist, np.log(dist), ee
-            yxtdist.append(mdist)
+            # mdist = np.log10(xdist) + ee
+            # print 'ZLOG: mdist, dist, log(dist), ee',\
+            #       mdist, dist, np.log(dist), ee
+            yxtdist.append(dist)
         yxtdistb = sorted(yxtdist)[0]
         sdata.pdisty.append(yxtdistb)
 
@@ -282,6 +284,7 @@ def dumpdata():
     f.close()
 
 
+# @profile
 def woo():
     # init step
     # reace = sdata.reactant.get_e()
@@ -400,29 +403,30 @@ def woo():
         for ix in range(len(sdata.xllist)):
             fpx = sdata.xllist[ix].get_lfp()
             # ex = sdata.xslist[ix].get_e() - reace
-            ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
-                             sdata.xllist[ix])
+            # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
+                             # sdata.xllist[ix])
             for iy in range(len(sdata.yllist)):
                 fpy = sdata.yllist[iy].get_lfp()
                 (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
                 # ey = sdata.yslist[iy].get_e() - reace
-                ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
-                                 sdata.yllist[iy])
-                ee = max(ex, ey)
+                # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
+                                 # sdata.yllist[iy])
+                # ee = max(ex, ey)
+                ee = 0
                 if dist < 1e-4:
                     xdist = 1e-4
                 else:
                     xdist = dist
-                mdist = np.log10(xdist) + ee
-                print 'ZLOG: mdist, dist, log(dist), ee,',\
-                      mdist, dist, np.log(dist), ee, 'G', ix, iy
-                xyldist.append([mdist, [ix, iy], dist, ee])
-        xyldistSort = sorted(xyldist, key=lambda x: x[0])
+                # mdist = np.log10(xdist) + ee
+                # print 'ZLOG: mdist, dist, log(dist), ee,',\
+                      # mdist, dist, np.log(dist), ee, 'G', ix, iy
+                xyldist.append([dist, [ix, iy], dist, ee])
+        xyldistSort = sorted(xyldist, key=lambda x: x[2])
         ix = xyldistSort[0][1][0]
         iy = xyldistSort[0][1][1]
         sdata.gbestx = cp(sdata.xllist[ix])
         sdata.gbesty = cp(sdata.yllist[iy])
-        bestdist = xyldistSort[0][0]
+        bestdist = xyldistSort[0][2]
         # print 'ZLOG: STEP %4d, bestDist: %8.7E' % (istep, bestdist)
         print "ZLOG: STEP %4d, bestDist: %8.7E, X-Y: %d %d" %\
               (istep, bestdist, ix, iy)
@@ -438,24 +442,25 @@ def woo():
         for ix in range(itin.npop):
             fpx = stepx[ix].loc.get_lfp()
             # ex = Xsad[ix].get_e() - reace
-            ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
-                             stepx[ix].loc)
+            # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
+                             # stepx[ix].loc)
             xytdist = []
             for iy in range(len(sdata.yllist)):
                 fpy = sdata.yllist[iy].get_lfp()
                 (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
                 # ey = sdata.yslist[iy].get_e() - reace
-                ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
-                                 sdata.yllist[iy])
-                ee = max(ex, ey)
+                # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
+                                 # sdata.yllist[iy])
+                # ee = max(ex, ey)
+                ee = 0
                 if dist < 1e-4:
                     xdist = 1e-4
                 else:
                     xdist = dist
-                mdist = np.log10(xdist) + ee
-                print 'ZLOG: mdist, dist, log(dist), ee',\
-                      mdist, dist, np.log(dist), ee, 'X', ix, iy, 'IP', istep
-                xytdist.append([mdist, iy])
+                # mdist = np.log10(xdist) + ee
+                # print 'ZLOG: mdist, dist, log(dist), ee',\
+                      # mdist, dist, np.log(dist), ee, 'X', ix, iy, 'IP', istep
+                xytdist.append([dist, iy])
             xytdistSort = sorted(xytdist, key=lambda x: x[0])
             xytbestdist = xytdistSort[0][0]
             # iy = xytbestdist[0][1]
@@ -469,24 +474,25 @@ def woo():
         for iy in range(itin.npop):
             fpy = stepy[iy].loc.get_lfp()
             # ey = Ysad[iy].get_e() - reace
-            ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
-                             stepy[iy].loc)
+            # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
+                             # stepy[iy].loc)
             yxtdist = []
             for ix in range(len(sdata.xllist)):
                 fpx = sdata.xllist[ix].get_lfp()
                 (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
                 # ex = sdata.xslist[ix].get_e() - reace
-                ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
-                                 sdata.xllist[ix])
-                ee = max(ex, ey)
+                # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
+                                 # sdata.xllist[ix])
+                # ee = max(ex, ey)
+                ee = 0
                 if dist < 1e-4:
                     xdist = 1e-4
                 else:
                     xdist = dist
-                mdist = np.log10(xdist) + ee
-                print 'ZLOG: mdist, dist, log(dist), ee',\
-                      mdist, dist, np.log(dist), ee, 'Y', ix, iy, 'IP', istep
-                yxtdist.append([mdist, ix])
+                # mdist = np.log10(xdist) + ee
+                # print 'ZLOG: mdist, dist, log(dist), ee',\
+                      # mdist, dist, np.log(dist), ee, 'Y', ix, iy, 'IP', istep
+                yxtdist.append([dist, ix])
             yxtdistSort = sorted(yxtdist, key=lambda x: x[0])
             yxtbestdist = yxtdistSort[0][0]
             yxdist.append(yxtbestdist)
@@ -676,7 +682,11 @@ def getx_fromid(xid, listed):
     exit(1)
 
 
-def mergelist(xlist):
+def mergelist(xlist0):
+    xlist = []
+    for xx in xlist0:
+        if xx.get_e() < 1000:
+            xlist.append(xx)
     xlisted = []
     xid = []
     for xc in xlist:
