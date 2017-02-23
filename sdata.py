@@ -61,3 +61,6 @@ ydirs = []
 
 evox = []
 evoy = []
+
+stepx = []
+stepy = []

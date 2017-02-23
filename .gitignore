@@ -3,3 +3,11 @@ TODO
 
 *.swp
 *.pyc
+
+*.bin
+
+*.gml
+
+nout
+
+*.gexf
