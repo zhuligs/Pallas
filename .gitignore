@@ -13,3 +13,11 @@ nout
 *.gexf
 
 *.dat
+
+netxout
+
+nout2
+
+testsig.py
+
+newmap.py
