@@ -8,6 +8,7 @@ import numpy as np
 import cPickle as pick
 
 from treelib import Node, Tree
+import networkx as nx
 
 import itin
 import sdata
@@ -49,13 +50,19 @@ def create_stepdata():
 
 
 def wo():
-    istep = 0
+    # istep = 0
     reace = sdata.reactant.get_e()
     print 'ZLOG, reace', reace
     sdata.reactant.add_left(-1)
     sdata.product.add_left(-1)
     sdata.xllist.append(sdata.reactant)
     sdata.yllist.append(sdata.product)
+    v = sdata.reactant.get_volume() / itin.nat
+    e = sdata.reactant.get_e() - reace
+    sdata.G.add_node('xl0', energy=e, volume=v)
+    v = sdata.product.get_volume() / itin.nat
+    e = sdata.product.get_e() - reace
+    sdata.G.add_node('yl0', energy=e, volume=v)
     # sdata.xslist.append(sdata.reactant)
     # sdata.yslist.append(sdata.product)
     # DATABASE
@@ -118,6 +125,19 @@ def wo():
         write_cell_to_vasp(stepy[ip].sad, ypcar)
         os.system('cp pbs_opt.sh ' + xdir + '/pbs.sh')
         os.system('cp pbs_opt.sh ' + ydir + '/pbs.sh')
+        xnode_name = 'xs' + str(xid)
+        xvol = xsets[ip].get_volume() / itin.nat
+        xe = xsets[ip].get_e() - reace
+        sdata.G.add_node(xnode_name, energy=xe, volume=xvol)
+        ynode_name = 'ys' + str(yid)
+        yvol = ysets[ip].get_volume() / itin.nat
+        ye = xsets[ip].get_e() - reace
+        sdata.G.add_node(ynode_name, energy=ye, volume=yvol)
+        sdata.G.add_edge('xl0', xnode_name)
+        sdata.G.add_edge('yl0', ynode_name)
+
+    del(xsets)
+    del(ysets)
 
     jobids = pushjob()
     if checkjob(jobids) == 0:
@@ -151,7 +171,21 @@ def wo():
 
         sdata.pbestx.append(stepx[ip].loc)
         sdata.pbesty.append(stepy[ip].loc)
+        xnode_name = 'xl' + str(xid)
+        xvol = xsets[ip].get_volume() / itin.nat
+        xe = xsets[ip].get_e() - reace
+        sdata.G.add_node(xnode_name, energy=xe, volume=xvol)
+        ynode_name = 'yl' + str(yid)
+        yvol = ysets[ip].get_volume() / itin.nat
+        ye = xsets[ip].get_e() - reace
+        sdata.G.add_node(ynode_name, energy=ye, volume=yvol)
+        pxnode_name = 'xs' + str(stepx[ip].sad.get_iden())
+        pynode_name = 'ys' + str(stepy[ip].sad.get_iden())
+        sdata.G.add_edge(pxnode_name, xnode_name)
+        sdata.G.add_edge(pynode_name, ynode_name)
 
+    del(xsets)
+    del(ysets)
     dumpdata()
 
     # stepx = sdata.evox[istep]
@@ -160,14 +194,15 @@ def wo():
     for ix in range(itin.npop):
         fpx = stepx[ix].loc.get_lfp()
         # ex = Xsad[ix].get_e() - reace
-        ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
-                         stepx[ix].loc)
+        # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
+        #                  stepx[ix].loc)
         for iy in range(itin.npop):
             fpy = stepy[iy].loc.get_lfp()
             # ey = Ysad[iy].get_e() - reace
-            ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
-                             stepy[iy].loc)
-            ee = max(ex, ey)
+            # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
+            #                  stepy[iy].loc)
+            # ee = max(ex, ey)
+            ee = 0.0
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
             # mdist for multiobjective opt
             if dist < 1e-4:
@@ -175,9 +210,15 @@ def wo():
             else:
                 xdist = dist
             mdist = np.log10(xdist) + ee
-            print 'ZLOG: mdist, dist, log(dist), ee',\
-                  mdist, dist, np.log(dist), ee
+            # print 'ZLOG: mdist, dist, log(dist), ee',\
+            #       mdist, dist, np.log(dist), ee
             xydist.append((mdist, (ix, iy), dist, ee))
+
+            if dist < itin.dist:
+                xnode_name = 'xl' + str(stepx[ix].loc.get_iden())
+                ynode_name = 'yl' + str(stepy[iy].loc.get_iden())
+                sdata.G.add_edge(xnode_name, ynode_name)
+
     xydistSort = sorted(xydist, key=lambda x: x[2])
     sdata.bestdist = xydistSort[0][2]
     sdata.bestmdist = xydistSort[0][0]
@@ -264,6 +305,7 @@ def wo():
     del(stepx)
     del(stepy)
 
+    showpath()
 
 def dumpdata():
     # f = open('evox.bin', 'w')
@@ -289,7 +331,7 @@ def dumpdata():
 # @profile
 def woo():
     # init step
-    # reace = sdata.reactant.get_e()
+    reace = sdata.reactant.get_e()
     wo()
     # pso step
 
@@ -300,11 +342,11 @@ def woo():
         # pstepy = sdata.evoy[istep - 1]
         stepx = create_stepdata()
         stepy = create_stepdata()
-        dataf = 'stepx_' + str(istep-1) + '.bin'
+        dataf = 'stepx_' + str(istep - 1) + '.bin'
         f = open(dataf)
         pstepx = pick.load(f)
         f.close()
-        dataf = 'stepy_' + str(istep-1) + '.bin'
+        dataf = 'stepy_' + str(istep - 1) + '.bin'
         f = open(dataf)
         pstepy = pick.load(f)
         f.close()
@@ -376,6 +418,23 @@ def woo():
             write_cell_to_vasp(stepy[ip].sad, ypcar)
             os.system('cp pbs_opt.sh ' + xdir + '/pbs.sh')
             os.system('cp pbs_opt.sh ' + ydir + '/pbs.sh')
+            xnode_name = 'xs' + str(xid)
+            xvol = stepx[ip].sad.get_volume() / itin.nat 
+            xe = stepx[ip].sad.get_e() - reace
+            sdata.G.add_node(xnode_name, energy=xe, volume=xvol)
+            ynode_name = 'ys' + str(yid)
+            yvol = stepy[ip].sad.get_volume() / itin.nat
+            ye = stepy[ip].sad.get_e() - reace
+            sdata.G.add_node(ynode_name, energy=ye, volume=yvol)
+            pxnode_name = 'xl' + str(pstepx[ip].loc.get_iden())
+            pynode_name = 'yl' + str(pstepy[ip].loc.get_iden())
+            sdata.G.add_edge(pxnode_name, xnode_name)
+            sdata.G.add_edge(pynode_name, ynode_name)
+
+
+
+        del(xsets)
+        del(ysets)
 
         jobids = pushjob()
         if checkjob(jobids) == 0:
@@ -405,7 +464,22 @@ def woo():
             # Yen.append(ysad.get_e())
             sdata.xllist.append(stepx[ip].loc)
             sdata.yllist.append(stepy[ip].loc)
+            xnode_name = 'xl' + str(xid)
+            xvol = stepx[ip].loc.get_volume() / itin.nat 
+            xe = stepx[ip].loc.get_e() - reace
+            sdata.G.add_node(xnode_name, energy=xe, volume=xvol)
+            ynode_name = 'yl' + str(yid)
+            yvol = stepy[ip].loc.get_volume() / itin.nat
+            ye = stepy[ip].loc.get_e() - reace
+            sdata.G.add_node(ynode_name, energy=ye, volume=yvol)
+            pxnode_name = 'xs' + str(stepx[ip].sad.get_iden())
+            pynode_name = 'ys' + str(stepy[ip].sad.get_iden())
+            sdata.G.add_edge(pxnode_name, xnode_name)
+            sdata.G.add_edge(pynode_name, ynode_name)
 
+
+        del(xsets)
+        del(ysets)
         dumpdata()
 
         # update gbest
@@ -413,24 +487,28 @@ def woo():
         for ix in range(len(sdata.xllist)):
             fpx = sdata.xllist[ix].get_lfp()
             # ex = sdata.xslist[ix].get_e() - reace
-            ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
-                             sdata.xllist[ix])
+            # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
+            #                  sdata.xllist[ix])
             for iy in range(len(sdata.yllist)):
                 fpy = sdata.yllist[iy].get_lfp()
                 (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
                 # ey = sdata.yslist[iy].get_e() - reace
-                ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
-                                 sdata.yllist[iy])
-                ee = max(ex, ey)
-                # ee = 0
+                # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
+                #                  sdata.yllist[iy])
+                # ee = max(ex, ey)
+                ee = 0.0
                 if dist < 1e-4:
                     xdist = 1e-4
                 else:
                     xdist = dist
                 mdist = np.log10(xdist) + ee
-                print 'ZLOG: mdist, dist, log(dist), ee,',\
-                      mdist, dist, np.log(dist), ee, 'G', ix, iy
+                # print 'ZLOG: mdist, dist, log(dist), ee,',\
+                #       mdist, dist, np.log(dist), ee, 'G', ix, iy
                 xyldist.append([dist, [ix, iy], dist, ee])
+                if dist < itin.dist:
+                    xnode_name = 'xl' + str(sdata.xllist[ix].get_iden())
+                    ynode_name = 'yl' + str(sdata.yllist[iy].get_iden())
+                    sdata.G.add_edge(xnode_name, ynode_name)
         xyldistSort = sorted(xyldist, key=lambda x: x[2])
         ix = xyldistSort[0][1][0]
         iy = xyldistSort[0][1][1]
@@ -438,12 +516,14 @@ def woo():
         sdata.gbesty = cp(sdata.yllist[iy])
         bestdist = xyldistSort[0][2]
         # print 'ZLOG: STEP %4d, bestDist: %8.7E' % (istep, bestdist)
+        # print "ZLOG: DEBUG: ix", ix, "iy", iy, "len xs", len(xslist), "len xl", len(xllist),\
+        #       "len ys", len(yslist), "len yl", len(yllist)
         print "ZLOG: STEP %4d, bestDist: %8.7E, X-Y: %d %d" %\
               (istep, bestdist, ix, iy)
-        print "ZLOG: X %d SAD-E: %8.7E LOC-E: %8.7E" % \
-              (ix, sdata.xslist[ix].get_e(), sdata.xllist[ix].get_e())
-        print "ZLOG: Y %d SAD-E: %8.7E LOC-E: %8.7E" % \
-              (iy, sdata.yslist[iy].get_e(), sdata.yllist[iy].get_e())
+        # print "ZLOG: X %d SAD-E: %8.7E LOC-E: %8.7E" % \
+        #       (ix, sdata.xslist[ix].get_e(), sdata.xllist[ix].get_e())
+        # print "ZLOG: Y %d SAD-E: %8.7E LOC-E: %8.7E" % \
+        #       (iy, sdata.yslist[iy].get_e(), sdata.yllist[iy].get_e())
 
         write_de(xyldist, sdata.reactant.get_e())
 
@@ -518,11 +598,11 @@ def woo():
         #     break
         dumpdata()
 
-        dataf = 'stepx_0.bin'
+        dataf = 'stepx_' + str(istep) + '.bin'
         f = open(dataf, 'w')
         pick.dump(stepx, f)
         f.close()
-        dataf = 'stepy_0.bin'
+        dataf = 'stepy_' + str(istep) + '.bin'
         f = open(dataf, 'w')
         pick.dump(stepy, f)
         f.close()
@@ -531,6 +611,20 @@ def woo():
         del(pstepx)
         del(pstepy)
 
+        showpath()
+
+
+def showpath():
+    paths = nx.all_simple_paths(sdata.G, source='xl0', target='yl0', cutoff=20)
+    for path in paths:
+        print 'ZLOG: PATH:', path
+        ee = []
+        for node in path:
+            e = sdata.G.node[node]['energy']
+            ee.append(e)
+        be = max(ee)
+        print 'ZLOG: NODE-E:', ee
+        print 'ZLOG: BARRIER:', be 
 
 
 def pushjob():
@@ -727,12 +821,6 @@ def mergelist(xlist):
             # print xc.get_iden()
             if xc.get_iden() == idt:
                 simit.append(xc)
-                # print 'lt'
-                # print lt
-                # print xc.get_left()
-                # print 'rt'
-                # print rt
-                # print xc.get_right()
                 lt += xc.get_left()
                 rt += xc.get_right()
                 xt = cp(xc)
@@ -742,16 +830,7 @@ def mergelist(xlist):
         xt.set_right(rtt)
         xlisted.append(xt)
     return xlisted
-
-
-# def getpbest(xy, istep, ip):
-#     if xy is 'x':
-#         pbest = cp(sdata.pbestx[])
-#     elif xy is 'y':
-#     else:
-#         print "ERROR: xy"
-#         sys.exit(1)
-
+    
 
 def write_de(xyldist, e0):
     k = 0

@@ -1,4 +1,7 @@
 import numpy as np
+import networkx as nx
+
+G = nx.Graph()
 
 saddlehistory = []
 localhistory = []

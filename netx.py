@@ -9,6 +9,9 @@ import fppy
 from copy import deepcopy as cp
 import sdata
 
+from fplib2 import fpdist
+
+
 # from w20 import get_barrier
 
 
@@ -50,15 +53,40 @@ def netx():
     ys = pick.load(f)
     f.close()
 
-    # xled = mergelist(xl)
-    # xsed = mergelist(xs)
-    # yled = mergelist(yl)
-    # ysed = mergelist(ys)
+    types = xl[0].get_types()
+    print types
+    return
 
-    xled = xl
-    xsed = xs
-    yled = yl
-    ysed = ys
+    dd = []
+    for x in xl:
+        fpx = x.get_lfp()
+        for y in yl:
+            fpy = y.get_lfp()
+            (d1, m) = fppy.fp_dist(itin.ntyp, types, fpx, fpy)
+            d2 = fpdist(itin.ntyp, types, fpx, fpy)
+            dd.append([d1, d2])
+
+    f = open('t28.out', 'w')
+    for x in dd:
+        f.write("%g  %g\n" % tuple(x))
+    f.close()
+    return 0
+
+
+    # for i in range(len(xl) - 1):
+    #     fp1 = xl[i].get_lfp()
+    #     for j in range(i + 1, len(xl)):
+    #         fp2 = xl[j].get_lfp()
+    #         (d, m) = fppy.fp_dist(itin.ntyp, types, fp1, fp2)
+    #         if d < 0.001:
+    #             print xl[i].get_iden(), xl[j].get_iden()
+
+    # return 0
+
+    xled = mergelist(xl)
+    xsed = mergelist(xs)
+    yled = mergelist(yl)
+    ysed = mergelist(ys)
 
     e0 = xl[0].get_e()
     ees = []
@@ -73,6 +101,7 @@ def netx():
         v = float(xll.get_volume() / itin.nat)
         vvs.append(v)
         G.add_node(nm, energy=e, volume=v, Polygon=0)
+        # G.add_node(xll, energy=e, volume=v, Polygon=0)
         # G.add_node(nm, energy=e)
         ees.append(e)
     for xss in xsed:
@@ -84,6 +113,7 @@ def netx():
         v = float(xss.get_volume() / itin.nat)
         vvs.append(v)
         G.add_node(nm, energy=e, volume=v, Polygon=4)
+        # G.add_node(xss, energy=e, volume=v, Polygon=4)
         # G.add_node(nm, energy=e)
         ees.append(e)
     for yll in yled:
@@ -95,6 +125,7 @@ def netx():
         v = float(yll.get_volume() / itin.nat)
         vvs.append(v)
         G.add_node(nm, energy=e, volume=v, Polygon=0)
+        # G.add_node(yll, energy=e, volume=v, Polygon=0)
         # G.add_node(nm, energy=e)
         ees.append(e)
     for yss in ysed:
@@ -106,6 +137,7 @@ def netx():
         v = float(yss.get_volume() / itin.nat)
         vvs.append(v)
         G.add_node(nm, energy=e, volume=v, Polygon=4)
+        # G.add_node(yss, energy=e, volume=v, Polygon=4)
         # G.add_node(nm, energy=e)
         ees.append(e)
 
@@ -123,8 +155,9 @@ def netx():
             nmy = 'yl' + str(iy)
             (d, m) = fppy.fp_dist(itin.ntyp, types, fpx, fpy)
             if d < itin.dist:
-                if d < 0.0001: d = 0.0001
-                d = 1./d
+                if d < 0.0001:
+                    d = 0.0001
+                d = 1. / d
                 G.add_edge(nmx, nmy, weight=d)
                 # G.add_edge(nmx, nmy)
 
@@ -139,8 +172,9 @@ def netx():
                 xsl = getx_fromid(iid, xsed)
                 fpxx = xsl.get_lfp()
                 (d, m) = fppy.fp_dist(itin.ntyp, types, fpx, fpxx)
-                if d < 0.0001: d = 0.0001
-                d = 1./d
+                if d < 0.0001:
+                    d = 0.0001
+                d = 1. / d
                 G.add_edge(nmx, nsx, weight=d)
                 # G.add_edge(nmx, nsx)
 
@@ -155,8 +189,9 @@ def netx():
                 ysl = getx_fromid(iid, ysed)
                 fpyy = ysl.get_lfp()
                 (d, m) = fppy.fp_dist(itin.ntyp, types, fpy, fpyy)
-                if d < 0.0001: d = 0.0001
-                d = 1./d
+                if d < 0.0001:
+                    d = 0.0001
+                d = 1. / d
                 G.add_edge(nmy, nsy, weight=d)
                 # G.add_edge(nmy, nsy)
 
@@ -175,14 +210,15 @@ def netx():
                 xll = getx_fromid(iid, xled)
                 fppx = xll.get_lfp()
                 (d, m) = fppy.fp_dist(itin.ntyp, types, fpx, fppx)
-                if d < 0.0001: d = 0.0001
-                d = 1./d
+                if d < 0.0001:
+                    d = 0.0001
+                d = 1. / d
                 G.add_edge(nmx, nmm, weight=d)
                 #G.add_edge(nmx, nmm)
 
     # for yy in yled:
         # print yy.get_iden()
-    
+
     for yss in ysed:
         fpy = yss.get_lfp()
         iy = yss.get_iden()
@@ -195,30 +231,30 @@ def netx():
                     yll = getx_fromid(iid, yled)
                 except:
                     continue
-                # fppy = 
+                # fppy =
                 fpyy = yll.get_lfp()
                 (d, m) = fppy.fp_dist(itin.ntyp, types, fpy, fpyy)
-                if d < 0.0001: d = 0.0001
-                d = 1./d
+                if d < 0.0001:
+                    d = 0.0001
+                d = 1. / d
                 G.add_edge(nmy, nmm, weight=d)
-
 
     # G.add_edge('xl0', 'xl10', color='red')
     # G.add_edge('xl10', 'yl0', color='red')
 
     # G.add_edge('xl0', 'xl186')
     #sdata.reace = xl[0].get_e()
-    #print sdata.reace
-    glist = []
-    for xxl in xl:
-        fpx = xxl.get_lfp()
-        # eex = get_barrier(xl, xs, xl[0], xxl)
-        for yyl in yl:
-            fpy = yyl.get_lfp()
-            (d, m) = fppy.fp_dist(itin.ntyp, types, fpx, fpy)
-            if d < itin.dist:
-                glist.append((xxl, yyl))
-                print xxl.get_iden(), yyl.get_iden(), xxl.get_e(), yyl.get_e()
+    # print sdata.reace
+    # glist = []
+    # for xxl in xl:
+    #     fpx = xxl.get_lfp()
+    #     # eex = get_barrier(xl, xs, xl[0], xxl)
+    #     for yyl in yl:
+    #         fpy = yyl.get_lfp()
+    #         (d, m) = fppy.fp_dist(itin.ntyp, types, fpx, fpy)
+    #         if d < itin.dist:
+    #             glist.append((xxl, yyl))
+    #             print xxl.get_iden(), yyl.get_iden(), xxl.get_e(), yyl.get_e()
     #
     # xx = getx_fromid(3, xl)
     # print xx.get_left()
@@ -231,8 +267,23 @@ def netx():
     #G.add_edge('xs11', 'xl3', color='red')
     #G.add_edge('xl3', 'ys2', color='red')
     #G.add_edge('ys2', 'yl0', color='red')
-    nx.write_gexf(G, "test.gexf")
-    nx.write_gml(G, 'network.gml')
+    # nx.write_gexf(G, "test.gexf")
+    # nx.write_gml(G, 'network.gml')
+
+    # for path in nx.all_simple_paths(G, source='xl0', target='yl0'):
+    #    print path
+    paths = nx.all_simple_paths(G, source='xl0', target='yl0', cutoff=10)
+    # print len(list(paths))
+    for path in paths:
+        print path
+        ee = []
+        for node in path:
+            e = G.node[node]['energy']
+            ee.append(e)
+        be = max(ee)
+        print 'energy', be, ee
+
+
 
 
 def mergelist(xlist):
@@ -269,6 +320,28 @@ def mergelist(xlist):
         xt.set_right(rtt)
         xlisted.append(xt)
     return xlisted
+
+
+# def mergl(xlist):
+#     n = len(xlist)
+#     types = xlist[0].get_types()
+#     for i in range(n - 1):
+#         xi = xlist[i]
+#         x = cp(xi)
+#         fpi = xi.get_lfp()
+#         xleft = xi.get_left()
+#         xright = xi.get_right()
+#         for j in range(i + 1, n):
+#             xj = xlist[j]
+#             fpj = xj.get_lfp()
+#             (d, m) = fppy.fp_dist(itin.ntyp, types, fpi, fpj)
+#             if d < itin.dist:
+#                 left = fpj.get_left()       
+#                 right = fpj.get_right()
+#                 xleft += left
+#                 xright += right
+#         x.set_left(xleft)
+#         x.set_righ()
 
 
 def getx_fromid(xid, listed):
