@@ -7,6 +7,7 @@ npop = 10
 sname = 'Si'
 znucl = [0]
 dist = 0.001
+ediff = 0.005
 
 instep = 50
 outstep = 50

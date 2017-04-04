@@ -6,6 +6,7 @@ import os
 from copy import deepcopy as cp
 import numpy as np
 import cPickle as pick
+from pele.storage import Database
 
 from treelib import Node, Tree
 import networkx as nx
@@ -91,12 +92,57 @@ def wo():
         f.close()
         os.system('cp pbs_dim.sh ' + xdir + '/pbs.sh')
         os.system('cp pbs_dim.sh ' + ydir + '/pbs.sh')
-
-    jobids = pushjob()
+    xkeep = [0] * itin.npop
+    ykeep = [0] * itin.npop
+    jobids = pushjob(xkeep, ykeep)
     if checkjob(jobids) == 0:
-        (xsets, ysets) = pulljob()
+        (xsets, ysets) = pulljob(xkeep, ykeep)
     else:
         return 100
+
+    itry = 0
+    while itry < 3:
+        itry += 1
+        xkeep = get_keep(xsets)
+        ykeep = get_keep(ysets)
+
+        if not((0 in xkeep) or (0 in ykeep)):
+            print 'ZLOG: no keep in xkeep and ykeep'
+            break
+
+        for ip in range(itin.npop):
+            if xkeep[ip] == 0:
+                xdir = sdata.xdirs[ip]
+                xpcar = xdir + '/PRESAD.vasp'
+                write_cell_to_vasp(sdata.reactant, xpcar)
+                xmode = get_rmode()
+                stepx[ip].v = cp(xmode)
+                f = open(xdir + '/mode.zf', 'w')
+                pick.dump(xmode, f)
+                f.close()
+                os.system('cp pbs_dim.sh ' + xdir + '/pbs.sh')
+
+            if ykeep[ip] == 0:
+                ydir = sdata.ydirs[ip]
+                ypcar = ydir + '/PRESAD.vasp'
+                write_cell_to_vasp(sdata.product, ypcar)
+                ymode = get_rmode()
+                stepy[ip].v = cp(ymode)
+                f = open(ydir + '/mode.zf', 'w')
+                pick.dump(ymode, f)
+                f.close()
+                os.system('cp pbs_dim.sh ' + xdir + '/pbs.sh')
+        jobids = pushjob(xkeep, ykeep)
+        if checkjob(jobids) == 0:
+            (xsets_tmp, ysets_tmp) = pulljob(xkeep, ykeep)
+        else:
+            return 100
+        for ip in range(itin.npop):
+            if xkeep[ip] == 0:
+                xsets[ip] = cp(xsets_tmp[ip])
+            if ykeep[ip] == 0:
+                ysets[ip] = cp(ysets_tmp[ip])
+
 
     # preploc(istep, xsets, ysets)
     # stepx = sdata.evox[istep]
@@ -139,9 +185,11 @@ def wo():
     del(xsets)
     del(ysets)
 
-    jobids = pushjob()
+    xkeep = [0] * itin.npop
+    ykeep = [0] * itin.npop
+    jobids = pushjob(xkeep, ykeep)
     if checkjob(jobids) == 0:
-        (xsets, ysets) = pulljob()
+        (xsets, ysets) = pulljob(xkeep, ykeep)
     else:
         return 100
 
@@ -192,12 +240,12 @@ def wo():
     # stepy = sdata.evoy[istep]
     xydist = []
     for ix in range(itin.npop):
-        fpx = stepx[ix].loc.get_lfp()
+        fpx = stepx[ix].loc.get_sfp()
         # ex = Xsad[ix].get_e() - reace
         # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
         #                  stepx[ix].loc)
         for iy in range(itin.npop):
-            fpy = stepy[iy].loc.get_lfp()
+            fpy = stepy[iy].loc.get_sfp()
             # ey = Ysad[iy].get_e() - reace
             # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
             #                  stepy[iy].loc)
@@ -233,14 +281,14 @@ def wo():
     # update pdist x
     for ix in range(itin.npop):
         xytdist = []
-        # fpx = Xloc[ix].get_lfp()
-        fpx = stepx[ix].loc.get_lfp()
+        # fpx = Xloc[ix].get_sfp()
+        fpx = stepx[ix].loc.get_sfp()
         # ex = Xsad[ix].get_e() - reace
         # ex = get_barrier(sdata.xllist, sdata.xslist, reac, Xloc[ix])
         # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
                          # stepx[ix].loc)
         for iy in range(len(sdata.yllist)):
-            fpy = sdata.yllist[iy].get_lfp()
+            fpy = sdata.yllist[iy].get_sfp()
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
             # ey = sdata.yslist[iy].get_e() - reace
             # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
@@ -261,14 +309,14 @@ def wo():
     # update pdist y
     for iy in range(itin.npop):
         yxtdist = []
-        # fpy = Yloc[iy].get_lfp()
-        fpy = stepy[iy].loc.get_lfp()
+        # fpy = Yloc[iy].get_sfp()
+        fpy = stepy[iy].loc.get_sfp()
         # ey = Ysad[iy].get_e() - reace
         # ey = get_barrier(sdata.yllist, sdata.yslist, prod, Yloc[iy])
         # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
                          # stepy[iy].loc)
         for ix in range(len(sdata.xllist)):
-            fpx = sdata.xllist[ix].get_lfp()
+            fpx = sdata.xllist[ix].get_sfp()
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
             # ex = sdata.xslist[ix].get_e() - reace
             # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
@@ -307,6 +355,26 @@ def wo():
 
     showpath()
 
+
+def get_keep(xsets):
+    dij = np.zeros((itin.npop, itin.npop))
+    for i in range(itin.npop - 1):
+        fpi = xsets[i].get_sfp()
+        for j in range(i + 1, itin.npop):
+            fpj = xsets[j].get_sfp()
+            (d, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpi, fpj)
+            dij[i][j] = d
+            dij[j][i] = d
+
+    xkeep = [1] * itin.npop
+
+    for i in range(itin.npop - 1):
+        for j in range(i + 1, itin.npop):
+            if dij[i][j] < itin.dist:
+                xkeep[j] = 0
+    return xkeep
+
+
 def dumpdata():
     # f = open('evox.bin', 'w')
     # pick.dump(sdata.evox, f)
@@ -334,7 +402,8 @@ def woo():
     reace = sdata.reactant.get_e()
     wo()
     # pso step
-
+    xkeep = [0] * itin.npop
+    ykeep = [0] * itin.npop
     for istep in range(1, itin.instep):
         # stepx = sdata.evox[istep]
         # stepy = sdata.evoy[istep]
@@ -388,9 +457,9 @@ def woo():
             os.system('cp pbs_dim.sh ' + xdir + '/pbs.sh')
             os.system('cp pbs_dim.sh ' + ydir + '/pbs.sh')
 
-        jobids = pushjob()
+        jobids = pushjob(xkeep, ykeep)
         if checkjob(jobids) == 0:
-            (xsets, ysets) = pulljob()
+            (xsets, ysets) = pulljob(xkeep, ykeep)
         else:
             return 100
 
@@ -419,7 +488,7 @@ def woo():
             os.system('cp pbs_opt.sh ' + xdir + '/pbs.sh')
             os.system('cp pbs_opt.sh ' + ydir + '/pbs.sh')
             xnode_name = 'xs' + str(xid)
-            xvol = stepx[ip].sad.get_volume() / itin.nat 
+            xvol = stepx[ip].sad.get_volume() / itin.nat
             xe = stepx[ip].sad.get_e() - reace
             sdata.G.add_node(xnode_name, energy=xe, volume=xvol)
             ynode_name = 'ys' + str(yid)
@@ -436,9 +505,9 @@ def woo():
         del(xsets)
         del(ysets)
 
-        jobids = pushjob()
+        jobids = pushjob(xkeep, ykeep)
         if checkjob(jobids) == 0:
-            (xsets, ysets) = pulljob()
+            (xsets, ysets) = pulljob(xkeep, ykeep)
         else:
             return 100
 
@@ -465,7 +534,7 @@ def woo():
             sdata.xllist.append(stepx[ip].loc)
             sdata.yllist.append(stepy[ip].loc)
             xnode_name = 'xl' + str(xid)
-            xvol = stepx[ip].loc.get_volume() / itin.nat 
+            xvol = stepx[ip].loc.get_volume() / itin.nat
             xe = stepx[ip].loc.get_e() - reace
             sdata.G.add_node(xnode_name, energy=xe, volume=xvol)
             ynode_name = 'yl' + str(yid)
@@ -485,12 +554,12 @@ def woo():
         # update gbest
         xyldist = []
         for ix in range(len(sdata.xllist)):
-            fpx = sdata.xllist[ix].get_lfp()
+            fpx = sdata.xllist[ix].get_sfp()
             # ex = sdata.xslist[ix].get_e() - reace
             # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
             #                  sdata.xllist[ix])
             for iy in range(len(sdata.yllist)):
-                fpy = sdata.yllist[iy].get_lfp()
+                fpy = sdata.yllist[iy].get_sfp()
                 (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
                 # ey = sdata.yslist[iy].get_e() - reace
                 # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
@@ -530,13 +599,13 @@ def woo():
         # updata pbest
         xydist = []
         for ix in range(itin.npop):
-            fpx = stepx[ix].loc.get_lfp()
+            fpx = stepx[ix].loc.get_sfp()
             # ex = Xsad[ix].get_e() - reace
             # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
                              # stepx[ix].loc)
             xytdist = []
             for iy in range(len(sdata.yllist)):
-                fpy = sdata.yllist[iy].get_lfp()
+                fpy = sdata.yllist[iy].get_sfp()
                 (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
                 # ey = sdata.yslist[iy].get_e() - reace
                 # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
@@ -562,13 +631,13 @@ def woo():
 
         yxdist = []
         for iy in range(itin.npop):
-            fpy = stepy[iy].loc.get_lfp()
+            fpy = stepy[iy].loc.get_sfp()
             # ey = Ysad[iy].get_e() - reace
             # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
                              # stepy[iy].loc)
             yxtdist = []
             for ix in range(len(sdata.xllist)):
-                fpx = sdata.xllist[ix].get_lfp()
+                fpx = sdata.xllist[ix].get_sfp()
                 (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
                 # ex = sdata.xslist[ix].get_e() - reace
                 # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
@@ -615,19 +684,26 @@ def woo():
 
 
 def showpath():
-    paths = nx.all_simple_paths(sdata.G, source='xl0', target='yl0', cutoff=20)
+    print 'ZLOG: start showpath'
+    paths = nx.all_simple_paths(sdata.G, source='xl0', target='yl0', cutoff=15)
+    pathdata = []
     for path in paths:
-        print 'ZLOG: PATH:', path
+        # print 'ZLOG: PATH:', path
         ee = []
         for node in path:
             e = sdata.G.node[node]['energy']
             ee.append(e)
         be = max(ee)
-        print 'ZLOG: NODE-E:', ee
-        print 'ZLOG: BARRIER:', be 
+        pathdata.append([be, path])
+        # print 'ZLOG: NODE-E:', ee
+        # print 'ZLOG: BARRIER:', be
+    if len(pathdata) > 0:
+        sorpathdata = sorted(pathdata, key = lambda x: x[0])
+        print 'ZLOG: BARRIER: ', sorpathdata[0][0]
+        print 'ZLOG: PATH:', sorpathdata[0][1]
+    print 'ZLOG: end showpath'
 
-
-def pushjob():
+def pushjob(xkeep, ykeep):
     jobids = []
     if itin.client == 'pbs':
         cdirs = sdata.xdirs + sdata.ydirs
@@ -645,7 +721,17 @@ def pushjob():
             jid = jbuff.strip()
             jobids.append(jid)
     elif itin.client == 'local':
-        cdirs = sdata.xdirs + sdata.ydirs
+        # cdirs = sdata.xdirs + sdata.ydirs
+        cdirs = []
+        for ip in range(itin.npop):
+            if xkeep[ip] == 0:
+                cdirs.append(sdata.xdirs[ip])
+        for ip in range(itin.npop):
+            if ykeep[ip] == 0:
+                cdirs.append(sdata.ydirs[ip])
+        print 'ZLOG: cal dir', cdirs
+        print 'ZLOG: len dir', len(cdirs)
+
         for cdir in cdirs:
             print 'ZLOG: START JOB in dir:', cdir
             os.system('cd ' + cdir + '; sh pbs.sh')
@@ -656,43 +742,54 @@ def pushjob():
     return jobids
 
 
-def pulljob():
+def pulljob(xkeep, ykeep):
     xsets = []
     ysets = []
     for ip in range(itin.npop):
-        xdir = sdata.xdirs[ip]
-        ydir = sdata.ydirs[ip]
-        try:
-            f = open(xdir + '/pcell.bin')
-            xx = pick.load(f)
-            f.close()
-        except:
-            print 'ZLOG: fail to pull x pcell.bin'
-            xx = set_cell_from_vasp(xdir + '/POSCAR.F')
-            xx.set_e(31118.)
-        try:
-            f = open(ydir + '/pcell.bin')
-            yy = pick.load(f)
-            f.close()
-        except:
-            print 'ZLOG: fail to pull y pcell.bin'
-            yy = set_cell_from_vasp(ydir + '/POSCAR.F')
-            yy.set_e(31118.)
+        if xkeep[ip] == 0:
+            xdir = sdata.xdirs[ip]
+            try:
+                f = open(xdir + '/pcell.bin')
+                xx = pick.load(f)
+                f.close()
+            except:
+                print 'ZLOG: fail to pull x pcell.bin'
+                xx = set_cell_from_vasp(xdir + '/POSCAR.F')
+                xx.set_e(31118.)
+        else:
+            xx = 'null'
+
+        if ykeep[ip] == 0:
+            ydir = sdata.ydirs[ip]
+            try:
+                f = open(ydir + '/pcell.bin')
+                yy = pick.load(f)
+                f.close()
+            except:
+                print 'ZLOG: fail to pull y pcell.bin'
+                yy = set_cell_from_vasp(ydir + '/POSCAR.F')
+                yy.set_e(31118.)
+        else:
+            yy = 'null'
+
         xsets.append(xx)
         ysets.append(yy)
     return (xsets, ysets)
 
 
 def update_iden(xlist, cell):
-    fpc = cell.get_lfp()
+    fpc = cell.get_sfp()
+    ec = cell.get_e()
     oldids = []
     if len(xlist) == 0:
         return 0
     for x in xlist:
-        fpx = x.get_lfp()
+        fpx = x.get_sfp()
         idx = x.get_iden()
         (d, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpc)
-        if d < itin.dist:
+        ex = x.get_e()
+        edf = np.abs(ec - ex)
+        if d < itin.dist and edf < itin.ediff:
             idc = idx
             return idc
         oldids.append(idx)
@@ -830,7 +927,7 @@ def mergelist(xlist):
         xt.set_right(rtt)
         xlisted.append(xt)
     return xlisted
-    
+
 
 def write_de(xyldist, e0):
     k = 0
@@ -998,9 +1095,9 @@ def utest2():
 
     goodlist = []
     for xx in xmlist:
-        fpx = xx.get_lfp()
+        fpx = xx.get_sfp()
         for yy in ymlist:
-            fpy = yy.get_lfp()
+            fpy = yy.get_sfp()
             (d, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
             if d < itin.dist:
                 print 'dd', d

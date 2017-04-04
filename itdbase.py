@@ -137,6 +137,10 @@ class Cell:
     def get_stress(self):
         return self.stress.copy()
 
+    def get_coor(self):
+        coor = self.positions.tolist() + self.lattice.tolist()
+        return np.array(coor)
+
     def cal_fp(self, cutoff, lmax, natx=300):
         lat = self.lattice
         rxyz = self.get_cart_positions()
