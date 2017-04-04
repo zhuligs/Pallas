@@ -91,12 +91,57 @@ def wo():
         f.close()
         os.system('cp pbs_dim.sh ' + xdir + '/pbs.sh')
         os.system('cp pbs_dim.sh ' + ydir + '/pbs.sh')
-
-    jobids = pushjob()
+    xkeep = [0] * itin.npop
+    ykeep = [0] * itin.npop
+    jobids = pushjob(xkeep, ykeep)
     if checkjob(jobids) == 0:
-        (xsets, ysets) = pulljob()
+        (xsets, ysets) = pulljob(xkeep, ykeep)
     else:
         return 100
+
+    itry = 0
+    while itry < 5:
+        itry += 1
+        xkeep = get_keep(xsets)
+        ykeep = get_keep(ysets)
+
+        if not((0 in xkeep) or (0 in ykeep)):
+            print 'ZLOG: no keep in xkeep and ykeep'
+            break
+
+        for ip in range(itin.npop):
+            if xkeep[ip] == 0:
+                xdir = sdata.xdirs[ip]
+                xpcar = xdir + '/PRESAD.vasp'
+                write_cell_to_vasp(sdata.reactant, xpcar)
+                xmode = get_rmode()
+                stepx[ip].v = cp(xmode)
+                f = open(xdir + '/mode.zf', 'w')
+                pick.dump(xmode, f)
+                f.close()
+                os.system('cp pbs_dim.sh ' + xdir + '/pbs.sh')
+
+            if ykeep[ip] == 0:
+                ydir = sdata.ydirs[ip]
+                ypcar = ydir + '/PRESAD.vasp'
+                write_cell_to_vasp(sdata.product, ypcar)
+                ymode = get_rmode()
+                stepy[ip].v = cp(ymode)
+                f = open(ydir + '/mode.zf', 'w')
+                pick.dump(ymode, f)
+                f.close()
+                os.system('cp pbs_dim.sh ' + xdir + '/pbs.sh')
+        jobids = pushjob(xkeep, ykeep)
+        if checkjob(jobids) == 0:
+            (xsets_tmp, ysets_tmp) = pulljob(xkeep, ykeep)
+        else:
+            return 100
+        for ip in range(itin.npop):
+            if xkeep[ip] == 0:
+                xsets[ip] = cp(xsets_tmp[ip])
+            if ykeep[ip] == 0:
+                ysets[ip] = cp(ysets_tmp[ip])
+
 
     # preploc(istep, xsets, ysets)
     # stepx = sdata.evox[istep]
@@ -139,9 +184,11 @@ def wo():
     del(xsets)
     del(ysets)
 
-    jobids = pushjob()
+    xkeep = [0] * itin.npop
+    ykeep = [0] * itin.npop
+    jobids = pushjob(xkeep, ykeep)
     if checkjob(jobids) == 0:
-        (xsets, ysets) = pulljob()
+        (xsets, ysets) = pulljob(xkeep, ykeep)
     else:
         return 100
 
@@ -307,6 +354,26 @@ def wo():
 
     showpath()
 
+
+def get_keep(xsets):
+    dij = np.zeros((itin.npop, itin.npop))
+    for i in range(itin.npop - 1):
+        fpi = xsets[i].get_sfp()
+        for j in range(i + 1, itin.npop):
+            fpj = xsets[j].get_sfp()
+            (d, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpi, fpj)
+            dij[i][j] = d
+            dij[j][i] = d
+
+    xkeep = [1] * itin.npop
+
+    for i in range(itin.npop - 1):
+        for j in range(i + 1, itin.npop):
+            if dij[i][j] < itin.dist:
+                xkeep[j] = 0
+    return xkeep
+
+
 def dumpdata():
     # f = open('evox.bin', 'w')
     # pick.dump(sdata.evox, f)
@@ -334,7 +401,8 @@ def woo():
     reace = sdata.reactant.get_e()
     wo()
     # pso step
-
+    xkeep = [0] * itin.npop
+    ykeep = [0] * itin.npop
     for istep in range(1, itin.instep):
         # stepx = sdata.evox[istep]
         # stepy = sdata.evoy[istep]
@@ -388,9 +456,9 @@ def woo():
             os.system('cp pbs_dim.sh ' + xdir + '/pbs.sh')
             os.system('cp pbs_dim.sh ' + ydir + '/pbs.sh')
 
-        jobids = pushjob()
+        jobids = pushjob(xkeep, ykeep)
         if checkjob(jobids) == 0:
-            (xsets, ysets) = pulljob()
+            (xsets, ysets) = pulljob(xkeep, ykeep)
         else:
             return 100
 
@@ -419,7 +487,7 @@ def woo():
             os.system('cp pbs_opt.sh ' + xdir + '/pbs.sh')
             os.system('cp pbs_opt.sh ' + ydir + '/pbs.sh')
             xnode_name = 'xs' + str(xid)
-            xvol = stepx[ip].sad.get_volume() / itin.nat 
+            xvol = stepx[ip].sad.get_volume() / itin.nat
             xe = stepx[ip].sad.get_e() - reace
             sdata.G.add_node(xnode_name, energy=xe, volume=xvol)
             ynode_name = 'ys' + str(yid)
@@ -436,9 +504,9 @@ def woo():
         del(xsets)
         del(ysets)
 
-        jobids = pushjob()
+        jobids = pushjob(xkeep, ykeep)
         if checkjob(jobids) == 0:
-            (xsets, ysets) = pulljob()
+            (xsets, ysets) = pulljob(xkeep, ykeep)
         else:
             return 100
 
@@ -465,7 +533,7 @@ def woo():
             sdata.xllist.append(stepx[ip].loc)
             sdata.yllist.append(stepy[ip].loc)
             xnode_name = 'xl' + str(xid)
-            xvol = stepx[ip].loc.get_volume() / itin.nat 
+            xvol = stepx[ip].loc.get_volume() / itin.nat
             xe = stepx[ip].loc.get_e() - reace
             sdata.G.add_node(xnode_name, energy=xe, volume=xvol)
             ynode_name = 'yl' + str(yid)
@@ -615,19 +683,26 @@ def woo():
 
 
 def showpath():
-    paths = nx.all_simple_paths(sdata.G, source='xl0', target='yl0', cutoff=20)
+    print 'ZLOG: start showpath'
+    paths = nx.all_simple_paths(sdata.G, source='xl0', target='yl0', cutoff=30)
+    pathdata = []
     for path in paths:
-        print 'ZLOG: PATH:', path
+        # print 'ZLOG: PATH:', path
         ee = []
         for node in path:
             e = sdata.G.node[node]['energy']
             ee.append(e)
         be = max(ee)
-        print 'ZLOG: NODE-E:', ee
-        print 'ZLOG: BARRIER:', be 
+        pathdata.append([be, path])
+        # print 'ZLOG: NODE-E:', ee
+        # print 'ZLOG: BARRIER:', be
+    if len(pathdata) > 0:
+        sorpathdata = sorted(pathdata, key = lambda x: x[0])
+        print 'ZLOG: BARRIER: ', sorpathdata[0][0]
+        print 'ZLOG: PATH:', sorpathdata[0][1]
+    print 'ZLOG: end showpath'
 
-
-def pushjob():
+def pushjob(xkeep, ykeep):
     jobids = []
     if itin.client == 'pbs':
         cdirs = sdata.xdirs + sdata.ydirs
@@ -645,7 +720,17 @@ def pushjob():
             jid = jbuff.strip()
             jobids.append(jid)
     elif itin.client == 'local':
-        cdirs = sdata.xdirs + sdata.ydirs
+        # cdirs = sdata.xdirs + sdata.ydirs
+        cdirs = []
+        for ip in range(itin.npop):
+            if xkeep[ip] == 0:
+                cdirs.append(sdata.xdirs[ip])
+        for ip in range(itin.npop):
+            if ykeep[ip] == 0:
+                cdirs.append(sdata.ydirs[ip])
+        print 'ZLOG: cal dir', cdirs
+        print 'ZLOG: len dir', len(cdirs)
+
         for cdir in cdirs:
             print 'ZLOG: START JOB in dir:', cdir
             os.system('cd ' + cdir + '; sh pbs.sh')
@@ -656,28 +741,36 @@ def pushjob():
     return jobids
 
 
-def pulljob():
+def pulljob(xkeep, ykeep):
     xsets = []
     ysets = []
     for ip in range(itin.npop):
-        xdir = sdata.xdirs[ip]
-        ydir = sdata.ydirs[ip]
-        try:
-            f = open(xdir + '/pcell.bin')
-            xx = pick.load(f)
-            f.close()
-        except:
-            print 'ZLOG: fail to pull x pcell.bin'
-            xx = set_cell_from_vasp(xdir + '/POSCAR.F')
-            xx.set_e(31118.)
-        try:
-            f = open(ydir + '/pcell.bin')
-            yy = pick.load(f)
-            f.close()
-        except:
-            print 'ZLOG: fail to pull y pcell.bin'
-            yy = set_cell_from_vasp(ydir + '/POSCAR.F')
-            yy.set_e(31118.)
+        if xkeep[ip] == 0:
+            xdir = sdata.xdirs[ip]
+            try:
+                f = open(xdir + '/pcell.bin')
+                xx = pick.load(f)
+                f.close()
+            except:
+                print 'ZLOG: fail to pull x pcell.bin'
+                xx = set_cell_from_vasp(xdir + '/POSCAR.F')
+                xx.set_e(31118.)
+        else:
+            xx = 'null'
+
+        if ykeep[ip] == 0:
+            ydir = sdata.ydirs[ip]
+            try:
+                f = open(ydir + '/pcell.bin')
+                yy = pick.load(f)
+                f.close()
+            except:
+                print 'ZLOG: fail to pull y pcell.bin'
+                yy = set_cell_from_vasp(ydir + '/POSCAR.F')
+                yy.set_e(31118.)
+        else:
+            yy = 'null'
+
         xsets.append(xx)
         ysets.append(yy)
     return (xsets, ysets)
@@ -830,7 +923,7 @@ def mergelist(xlist):
         xt.set_right(rtt)
         xlisted.append(xt)
     return xlisted
-    
+
 
 def write_de(xyldist, e0):
     k = 0
