@@ -258,7 +258,7 @@ def checkjob(jobids):
         time.sleep(3)
         if os.path.isfile('CSTOP'):
             os.system('rm -f CSTOP')
-            print 'CSTOP'
+            print 'ZLOG: CSTOP'
             for ii in jobids:
                 print 'qdel ' + ii
                 os.system('qdel ' + ii)

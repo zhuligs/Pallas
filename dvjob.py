@@ -81,7 +81,8 @@ d = ssdimer.SSDimer_atoms(p, mode=mode, rotationMax=4,
 
 #################################################
 # use quickmin optimizer in ssdimer
-d.search(minForce=0.01, movie="dimer2.movie", interval=20)
+# d.search(minForce=0.01, movie="dimer2.movie", interval=20)
+d.search(minForce=0.01, maxForceCalls=3000)
 #################################################
 # use MDMin optimizer in ase
 # dyn = MDMin(d)
@@ -92,7 +93,7 @@ d.search(minForce=0.01, movie="dimer2.movie", interval=20)
 # dyn.run(fmax=0.01)
 #################################################
 
-write("dimer1.vasp", d.R0, format='vasp')
+write("dimer1.vasp", d.R0, format='vasp', direct=True)
 E1 = p.get_potential_energy()
 print "TTENERGY ", E1
 # print "barrier:", E1 - E0

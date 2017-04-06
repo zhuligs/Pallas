@@ -33,14 +33,6 @@ def w20init():
         os.system('mkdir -p ' + ydir)
         sdata.xdirs.append(xdir)
         sdata.ydirs.append(ydir)
-    # for istep in range(itin.instep):
-    #     stepx = []
-    #     stepy = []
-    #     for i in range(itin.npop):
-    #         stepx.append(itdbase.Cobj())
-    #         stepy.append(itdbase.Cobj())
-    #     sdata.evox.append(stepx)
-    #     sdata.evoy.append(stepy)
 
 
 def create_stepdata():
@@ -64,13 +56,7 @@ def wo():
     v = sdata.product.get_volume() / itin.nat
     e = sdata.product.get_e() - reace
     sdata.G.add_node('yl0', energy=e, volume=v)
-    # sdata.xslist.append(sdata.reactant)
-    # sdata.yslist.append(sdata.product)
-    # DATABASE
 
-    # prepdim(istep)
-    # stepx = sdata.evox[istep]
-    # stepy = sdata.evoy[istep]
     stepx = create_stepdata()
     stepy = create_stepdata()
     for ip in range(itin.npop):
@@ -718,7 +704,16 @@ def showpath():
 def pushjob(xkeep, ykeep):
     jobids = []
     if itin.client == 'pbs':
-        cdirs = sdata.xdirs + sdata.ydirs
+        # cdirs = sdata.xdirs + sdata.ydirs
+        cdirs = []
+        for ip in range(itin.npop):
+            if xkeep[ip] == 0:
+                cdirs.append(sdata.xdirs[ip])
+        for ip in range(itin.npop):
+            if ykeep[ip] == 0:
+                cdirs.append(sdata.ydirs[ip])
+        print 'ZLOG: cal dir', cdirs
+        print 'ZLOG: len dir', len(cdirs)
         cwdn = os.getcwd()
         for cdir in cdirs:
             ddir = cwdn + '/' + cdir
