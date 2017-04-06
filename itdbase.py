@@ -61,9 +61,12 @@ class Cell:
         return self.name
 
     def set_lattice(self, lat):
-        cons = lat2lcons(lat)
+        self.lattice = np.array(lat)
+
+    def get_dlattice(self):
+        cons = lat2lcons(self.lattice)
         newlat = lcons2lat(cons)
-        self.lattice = np.array(newlat)
+        return np.array(newlat)
 
     def get_lattice(self):
         return self.lattice.copy()

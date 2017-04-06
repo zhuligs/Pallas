@@ -67,3 +67,5 @@ evoy = []
 
 stepx = []
 stepy = []
+bestbe = 10000.
+bestpath = []

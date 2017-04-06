@@ -151,7 +151,7 @@ def wo():
         stepx[ip].sad = cp(xsets[ip])
         stepy[ip].sad = cp(ysets[ip])
         xid = update_iden(sdata.xslist, stepx[ip].sad)
-        yid = update_iden(sdata.xslist, stepy[ip].sad)
+        yid = update_iden(sdata.yslist, stepy[ip].sad)
         stepx[ip].sad.set_iden(xid)
         stepy[ip].sad.set_iden(yid)
         stepx[ip].sad.set_sm('S')
@@ -467,7 +467,7 @@ def woo():
             stepx[ip].sad = cp(xsets[ip])
             stepy[ip].sad = cp(ysets[ip])
             xid = update_iden(sdata.xslist, stepx[ip].sad)
-            yid = update_iden(sdata.xslist, stepy[ip].sad)
+            yid = update_iden(sdata.yslist, stepy[ip].sad)
             stepx[ip].sad.set_iden(xid)
             stepy[ip].sad.set_iden(yid)
             pstepx[ip].loc.add_right(xid)
@@ -687,6 +687,7 @@ def showpath():
     print 'ZLOG: start showpath'
     paths = nx.all_simple_paths(sdata.G, source='xl0', target='yl0', cutoff=15)
     pathdata = []
+    bes = []
     for path in paths:
         # print 'ZLOG: PATH:', path
         ee = []
@@ -694,13 +695,24 @@ def showpath():
             e = sdata.G.node[node]['energy']
             ee.append(e)
         be = max(ee)
-        pathdata.append([be, path])
+        if be < sdata.bestbe:
+            pathdata.append([be, path])
+            bes.append(be)
         # print 'ZLOG: NODE-E:', ee
         # print 'ZLOG: BARRIER:', be
     if len(pathdata) > 0:
-        sorpathdata = sorted(pathdata, key = lambda x: x[0])
-        print 'ZLOG: BARRIER: ', sorpathdata[0][0]
-        print 'ZLOG: PATH:', sorpathdata[0][1]
+        sorpath = []
+        sdata.bestbe = min(bes)
+        for pt in pathdata:
+            if abs(pt[0] - sdata.bestbe) < 0.0001:
+                sorpath.append([len(pt[1]), pt[1]])
+
+        sorpathdata = sorted(sorpath, key = lambda x: x[0])
+        sdata.bestpath = sorpathdata[0][1]
+        # print 'ZLOG: BARRIER: ', sorpathdata[0][0]
+        # print 'ZLOG: PATH:', sorpathdata[0][1]
+    print 'ZLOG: BARRIER: ', sdata.bestbe
+    print 'ZLOG: PATH:', sdata.bestpath
     print 'ZLOG: end showpath'
 
 def pushjob(xkeep, ykeep):
