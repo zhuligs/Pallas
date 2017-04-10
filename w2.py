@@ -4,7 +4,7 @@ import itin
 import sdata
 import fppy
 from copy import deepcopy as cp
-# import cPickle as pick
+import cPickle as pick
 from wrapdimer import get_mode, get_0mode, get_rmode
 from zfunc import gopt, rundim, set_cell_from_vasp, write_cell_to_vasp, getx
 import numpy as np
@@ -225,13 +225,19 @@ def initrun():
         sdata.ifpso.append(True)
         sdata.ifpsox.append(True)
         sdata.ifpsoy.append(True)
-    reac0 = set_cell_from_vasp('R.vasp')
-    prod0 = set_cell_from_vasp('P.vasp')
-    mode = get_0mode()
-    reac = gopt(reac0, mode)
-    prod = gopt(prod0, mode)
-    write_cell_to_vasp(reac, 'ROPT.vasp')
-    write_cell_to_vasp(prod, 'POPT.vasp')
+    # reac0 = set_cell_from_vasp('R.vasp')
+    # prod0 = set_cell_from_vasp('P.vasp')
+    # mode = get_0mode()
+    # reac = gopt(reac0, mode)
+    # prod = gopt(prod0, mode)
+    # write_cell_to_vasp(reac, 'ROPT.vasp')
+    # write_cell_to_vasp(prod, 'POPT.vasp')
+    f = open('reac.inbin')
+    reac = pick.load(f)
+    f.close()
+    f = open('prod.inbin')
+    prod = pick.load(f)
+    f.close()
     sdata.types = reac.get_types()
     fpr = reac.get_lfp()
     fpp = prod.get_lfp()
