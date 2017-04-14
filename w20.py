@@ -514,6 +514,7 @@ def woo():
         dumpdata()
 
         # update gbest
+        bconnected = False
         xyldist = []
         for ix in range(len(sdata.xllist)):
             fpx = sdata.xllist[ix].get_sfp()
@@ -537,8 +538,9 @@ def woo():
                 # mdist = np.log10(xdist) + ee
                 # print 'ZLOG: mdist, dist, log(dist), ee,',\
                 #       mdist, dist, np.log(dist), ee, 'G', ix, iy
-                mdist = dist
+                mdist = 10000.
                 if dist < itin.dist and abs(ex - ey) < itin.ediff:
+                    bconnected = True
                     xnode_name = 'xl' + str(sdata.xllist[ix].get_iden())
                     ynode_name = 'yl' + str(sdata.yllist[iy].get_iden())
                     sdata.G.add_edge(xnode_name, ynode_name)
@@ -550,7 +552,10 @@ def woo():
                     mdist = ebar
                 xyldist.append([dist, [ix, iy], mdist, ee])
 
-        xyldistSort = sorted(xyldist, key=lambda x: x[2])
+        if bconnected:
+            xyldistSort = sorted(xyldist, key=lambda x: x[2])
+        else:
+            xyldistSort = sorted(xyldist, key=lambda x: x[0])
         ix = xyldistSort[0][1][0]
         iy = xyldistSort[0][1][1]
         sdata.gbestx = cp(sdata.xllist[ix])
@@ -671,7 +676,7 @@ def get_barrier(xy, ic, istep, xcell, cutoff):
     if xy == 'x':
         sour = 'xl0'
         targ = 'xl' + str(xcell.get_iden())
-        paths = nx.all_simple_paths(sdata.G, sources=sour, target=targ,
+        paths = nx.all_simple_paths(sdata.G, source=sour, target=targ,
                                     cutoff=cutoff)
         ees = []
         for path in paths:
@@ -692,7 +697,7 @@ def get_barrier(xy, ic, istep, xcell, cutoff):
     if xy == 'y':
         sour = 'yl0'
         targ = 'yl' + str(xcell.get_iden())
-        paths = nx.all_simple_paths(sdata.G, sources=sour, target=targ,
+        paths = nx.all_simple_paths(sdata.G, source=sour, target=targ,
                                     cutoff=cutoff)
         ees = []
         for path in paths:
