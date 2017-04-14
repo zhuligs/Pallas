@@ -6,18 +6,18 @@ import os
 from copy import deepcopy as cp
 import numpy as np
 import cPickle as pick
-from pele.storage import Database
+# from pele.storage import Database
 
-from treelib import Node, Tree
+# from treelib import Node, Tree
 import networkx as nx
 
 import itin
 import sdata
 import fppy
 import itdbase
-from wrapdimer import get_mode, get_0mode, get_rmode
-from zfunc import gopt, rundim, set_cell_from_vasp, write_cell_to_vasp, getx
-from w2 import gen_rsaddle, initrun
+from wrapdimer import get_rmode
+from zfunc import rundim, set_cell_from_vasp, write_cell_to_vasp, getx
+from w2 import initrun
 # from w40 import get_dimfile_ready, get_optfile_ready
 from w40 import checkjob
 
@@ -129,7 +129,6 @@ def wo():
             if ykeep[ip] == 0:
                 ysets[ip] = cp(ysets_tmp[ip])
 
-
     # preploc(istep, xsets, ysets)
     # stepx = sdata.evox[istep]
     # stepy = sdata.evoy[istep]
@@ -163,7 +162,7 @@ def wo():
         sdata.G.add_node(xnode_name, energy=xe, volume=xvol)
         ynode_name = 'ys' + str(yid)
         yvol = ysets[ip].get_volume() / itin.nat
-        ye = xsets[ip].get_e() - reace
+        ye = ysets[ip].get_e() - reace
         sdata.G.add_node(ynode_name, energy=ye, volume=yvol)
         sdata.G.add_edge('xl0', xnode_name)
         sdata.G.add_edge('yl0', ynode_name)
@@ -211,7 +210,7 @@ def wo():
         sdata.G.add_node(xnode_name, energy=xe, volume=xvol)
         ynode_name = 'yl' + str(yid)
         yvol = ysets[ip].get_volume() / itin.nat
-        ye = xsets[ip].get_e() - reace
+        ye = ysets[ip].get_e() - reace
         sdata.G.add_node(ynode_name, energy=ye, volume=yvol)
         pxnode_name = 'xs' + str(stepx[ip].sad.get_iden())
         pynode_name = 'ys' + str(stepy[ip].sad.get_iden())
@@ -227,11 +226,13 @@ def wo():
     xydist = []
     for ix in range(itin.npop):
         fpx = stepx[ix].loc.get_sfp()
+        ex = stepx[ix].loc.get_e()
         # ex = Xsad[ix].get_e() - reace
         # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
         #                  stepx[ix].loc)
         for iy in range(itin.npop):
             fpy = stepy[iy].loc.get_sfp()
+            ey = stepy[iy].loc.get_e()
             # ey = Ysad[iy].get_e() - reace
             # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
             #                  stepy[iy].loc)
@@ -248,7 +249,7 @@ def wo():
             #       mdist, dist, np.log(dist), ee
             xydist.append((mdist, (ix, iy), dist, ee))
 
-            if dist < itin.dist:
+            if dist < itin.dist and abs(ex - ey) < itin.ediff:
                 xnode_name = 'xl' + str(stepx[ix].loc.get_iden())
                 ynode_name = 'yl' + str(stepy[iy].loc.get_iden())
                 sdata.G.add_edge(xnode_name, ynode_name)
@@ -267,19 +268,10 @@ def wo():
     # update pdist x
     for ix in range(itin.npop):
         xytdist = []
-        # fpx = Xloc[ix].get_sfp()
         fpx = stepx[ix].loc.get_sfp()
-        # ex = Xsad[ix].get_e() - reace
-        # ex = get_barrier(sdata.xllist, sdata.xslist, reac, Xloc[ix])
-        # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
-                         # stepx[ix].loc)
         for iy in range(len(sdata.yllist)):
             fpy = sdata.yllist[iy].get_sfp()
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
-            # ey = sdata.yslist[iy].get_e() - reace
-            # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
-                             # sdata.yllist[iy])
-            # ee = max(ex, ey)
             ee = 0
             if dist < 1e-4:
                 xdist = 1e-4
@@ -295,19 +287,10 @@ def wo():
     # update pdist y
     for iy in range(itin.npop):
         yxtdist = []
-        # fpy = Yloc[iy].get_sfp()
         fpy = stepy[iy].loc.get_sfp()
-        # ey = Ysad[iy].get_e() - reace
-        # ey = get_barrier(sdata.yllist, sdata.yslist, prod, Yloc[iy])
-        # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
-                         # stepy[iy].loc)
         for ix in range(len(sdata.xllist)):
             fpx = sdata.xllist[ix].get_sfp()
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
-            # ex = sdata.xslist[ix].get_e() - reace
-            # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
-                             # sdata.xllist[ix])
-            # ee = max(ex, ey)
             ee = 0
             if dist < 1e-4:
                 xdist = 1e-4
@@ -362,12 +345,6 @@ def get_keep(xsets):
 
 
 def dumpdata():
-    # f = open('evox.bin', 'w')
-    # pick.dump(sdata.evox, f)
-    # f.close()
-    # f = open('evoy.bin', 'w')
-    # pick.dump(sdata.evoy, f)
-    # f.close()
     f = open('xslist.bin', 'w')
     pick.dump(sdata.xslist, f)
     f.close()
@@ -380,9 +357,11 @@ def dumpdata():
     f = open('yllist.bin', 'w')
     pick.dump(sdata.yllist, f)
     f.close()
+    f = open('G.bin', 'w')
+    pick.dump(sdata.G, f)
+    f.close()
 
 
-# @profile
 def woo():
     # init step
     reace = sdata.reactant.get_e()
@@ -486,8 +465,6 @@ def woo():
             sdata.G.add_edge(pxnode_name, xnode_name)
             sdata.G.add_edge(pynode_name, ynode_name)
 
-
-
         del(xsets)
         del(ysets)
 
@@ -532,7 +509,6 @@ def woo():
             sdata.G.add_edge(pxnode_name, xnode_name)
             sdata.G.add_edge(pynode_name, ynode_name)
 
-
         del(xsets)
         del(ysets)
         dumpdata()
@@ -541,40 +517,48 @@ def woo():
         xyldist = []
         for ix in range(len(sdata.xllist)):
             fpx = sdata.xllist[ix].get_sfp()
+            ex = sdata.xllist[ix].get_e()
             # ex = sdata.xslist[ix].get_e() - reace
             # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
             #                  sdata.xllist[ix])
             for iy in range(len(sdata.yllist)):
                 fpy = sdata.yllist[iy].get_sfp()
+                ey = sdata.yllist[iy].get_e()
                 (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
                 # ey = sdata.yslist[iy].get_e() - reace
                 # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
                 #                  sdata.yllist[iy])
                 # ee = max(ex, ey)
                 ee = 0.0
-                if dist < 1e-4:
-                    xdist = 1e-4
-                else:
-                    xdist = dist
-                mdist = np.log10(xdist) + ee
+                # if dist < 1e-4:
+                #     xdist = 1e-4
+                # else:
+                #     xdist = dist
+                # mdist = np.log10(xdist) + ee
                 # print 'ZLOG: mdist, dist, log(dist), ee,',\
                 #       mdist, dist, np.log(dist), ee, 'G', ix, iy
-                xyldist.append([dist, [ix, iy], dist, ee])
-                if dist < itin.dist:
+                mdist = dist
+                if dist < itin.dist and abs(ex - ey) < itin.ediff:
                     xnode_name = 'xl' + str(sdata.xllist[ix].get_iden())
                     ynode_name = 'yl' + str(sdata.yllist[iy].get_iden())
                     sdata.G.add_edge(xnode_name, ynode_name)
+                    # if the x - y is connected, set the x y with lowest
+                    # barrier energy as the global best
+                    xbarrier = get_barrier('x', ix, istep, sdata.xllist[ix], 10)
+                    ybarrier = get_barrier('y', iy, istep, sdata.yllist[iy], 10)
+                    ebar = max(xbarrier, ybarrier)
+                    mdist = ebar
+                xyldist.append([dist, [ix, iy], mdist, ee])
+
         xyldistSort = sorted(xyldist, key=lambda x: x[2])
         ix = xyldistSort[0][1][0]
         iy = xyldistSort[0][1][1]
         sdata.gbestx = cp(sdata.xllist[ix])
         sdata.gbesty = cp(sdata.yllist[iy])
-        bestdist = xyldistSort[0][2]
-        # print 'ZLOG: STEP %4d, bestDist: %8.7E' % (istep, bestdist)
-        # print "ZLOG: DEBUG: ix", ix, "iy", iy, "len xs", len(xslist), "len xl", len(xllist),\
-        #       "len ys", len(yslist), "len yl", len(yllist)
-        print "ZLOG: STEP %4d, bestDist: %8.7E, X-Y: %d %d" %\
-              (istep, bestdist, ix, iy)
+        bestmdist = xyldistSort[0][2]
+        bfpdist = xyldistSort[0][0]
+        print "ZLOG: STEP %4d, fpDist: %8.7E, mDist: %8.7E, X-Y: %d %d" %\
+              (istep, bfpdist, bestmdist, ix, iy)
         # print "ZLOG: X %d SAD-E: %8.7E LOC-E: %8.7E" % \
         #       (ix, sdata.xslist[ix].get_e(), sdata.xllist[ix].get_e())
         # print "ZLOG: Y %d SAD-E: %8.7E LOC-E: %8.7E" % \
@@ -586,25 +570,15 @@ def woo():
         xydist = []
         for ix in range(itin.npop):
             fpx = stepx[ix].loc.get_sfp()
-            # ex = Xsad[ix].get_e() - reace
-            # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
-                             # stepx[ix].loc)
             xytdist = []
             for iy in range(len(sdata.yllist)):
                 fpy = sdata.yllist[iy].get_sfp()
                 (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
-                # ey = sdata.yslist[iy].get_e() - reace
-                # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
-                                 # sdata.yllist[iy])
-                # ee = max(ex, ey)
                 ee = 0
-                if dist < 1e-4:
-                    xdist = 1e-4
-                else:
-                    xdist = dist
-                # mdist = np.log10(xdist) + ee
-                # print 'ZLOG: mdist, dist, log(dist), ee',\
-                      # mdist, dist, np.log(dist), ee, 'X', ix, iy, 'IP', istep
+                # if dist < 1e-4:
+                #     xdist = 1e-4
+                # else:
+                #     xdist = dist
                 xytdist.append([dist, iy])
             xytdistSort = sorted(xytdist, key=lambda x: x[0])
             xytbestdist = xytdistSort[0][0]
@@ -618,25 +592,15 @@ def woo():
         yxdist = []
         for iy in range(itin.npop):
             fpy = stepy[iy].loc.get_sfp()
-            # ey = Ysad[iy].get_e() - reace
-            # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
-                             # stepy[iy].loc)
             yxtdist = []
             for ix in range(len(sdata.xllist)):
                 fpx = sdata.xllist[ix].get_sfp()
                 (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
-                # ex = sdata.xslist[ix].get_e() - reace
-                # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
-                                 # sdata.xllist[ix])
-                # ee = max(ex, ey)
                 ee = 0
-                if dist < 1e-4:
-                    xdist = 1e-4
-                else:
-                    xdist = dist
-                # mdist = np.log10(xdist) + ee
-                # print 'ZLOG: mdist, dist, log(dist), ee',\
-                      # mdist, dist, np.log(dist), ee, 'Y', ix, iy, 'IP', istep
+                # if dist < 1e-4:
+                #     xdist = 1e-4
+                # else:
+                #     xdist = dist
                 yxtdist.append([dist, ix])
             yxtdistSort = sorted(yxtdist, key=lambda x: x[0])
             yxtbestdist = yxtdistSort[0][0]
@@ -693,13 +657,61 @@ def showpath():
             if abs(pt[0] - sdata.bestbe) < 0.0001:
                 sorpath.append([len(pt[1]), pt[1]])
 
-        sorpathdata = sorted(sorpath, key = lambda x: x[0])
+        sorpathdata = sorted(sorpath, key=lambda x: x[0])
         sdata.bestpath = sorpathdata[0][1]
         # print 'ZLOG: BARRIER: ', sorpathdata[0][0]
         # print 'ZLOG: PATH:', sorpathdata[0][1]
     print 'ZLOG: BARRIER: ', sdata.bestbe
     print 'ZLOG: PATH:', sdata.bestpath
     print 'ZLOG: end showpath'
+
+
+def get_barrier(xy, ic, istep, xcell, cutoff):
+    reace = sdata.reactant.get_e()
+    if xy == 'x':
+        sour = 'xl0'
+        targ = 'xl' + str(xcell.get_iden())
+        paths = nx.all_simple_paths(sdata.G, sources=sour, target=targ,
+                                    cutoff=cutoff)
+        ees = []
+        for path in paths:
+            for node in path:
+                ee = []
+                e = sdata.G.node[node]['energy']
+                ee.append(e)
+            ees.append(max(ee))
+        if len(ees) > 0:
+            be = min(ees)
+        else:
+            ee = []
+            for i in range(istep):
+                ix = ic - i * itin.npop
+                ee.append(sdata.xllist[ix].get_e())
+                ee.append(sdata.xslist[ix - 1].get_e())
+            be = max(ee) - reace
+    if xy == 'y':
+        sour = 'yl0'
+        targ = 'yl' + str(xcell.get_iden())
+        paths = nx.all_simple_paths(sdata.G, sources=sour, target=targ,
+                                    cutoff=cutoff)
+        ees = []
+        for path in paths:
+            for node in path:
+                ee = []
+                e = sdata.G.node[node]['energy']
+                ee.append(e)
+            ees.append(max(ee))
+        if len(ees) > 0:
+            be = min(ees)
+        else:
+            ee = []
+            for i in range(istep):
+                ix = ic - i * itin.npop
+                ee.append(sdata.yllist[ix].get_e())
+                ee.append(sdata.yslist[ix - 1].get_e())
+            be = max(ee) - reace
+    return be
+
 
 def pushjob(xkeep, ykeep):
     jobids = []
@@ -851,51 +863,6 @@ def gen_psaddle(xy, xcell, istep, ip):
     return (scell, v)
 
 
-def connect_path(ine, mlisted, slisted, xm, xend, fatherids, xpath):
-    # input: saddlelist, minimalist, npop, istep
-    # reactant/product minimalist[0]
-    # xend : the end point, either product or reactant
-    # find the first neighbor saddle for xend
-
-    # MERGE mlist and slist
-    # mlisted = mergelr(mlist)
-    # slisted = mergelr(mlist)
-
-    # snode0 = []
-    # snode0id = []
-    # for xs in slist:
-    #    if 0 in xs.get_nbor():
-    #        snode0.append(xs)
-    #        snode0id.append(xs.get_iden())
-
-    # print 'm left', xm.get_left()
-
-    for sp_id in xm.get_left():
-        if sp_id not in fatherids and sp_id > -1:
-            fatherids.append(sp_id)
-            sp = getx_fromid(sp_id, slisted)
-            e = sp.get_e() - ine
-            xpath.create_node('Saddle' + str(sp.get_iden()) + 'E' + str(e),
-                              sp.get_nid(), parent=xm.get_nid(), data=sp)
-            for m_id in sp.get_left():
-                if m_id == 0:
-                    # connect the xend
-                    xend.set_nid(xend.get_nid() - 1)
-                    xpath.create_node('END', xend.get_nid(),
-                                      parent=sp.get_nid(), data=xend)
-                    # print '# ZLOG: CONNECTED MID', m_id
-                else:
-                    # print '# ZLOG: SON ID', m_id
-                    mp = getx_fromid(m_id, mlisted)
-                    e = mp.get_e() - ine
-                    xpath.create_node('Minima' + str(mp.get_iden()) + 'E' +
-                                      str(e), mp.get_nid(),
-                                      parent=sp.get_nid(), data=mp)
-                    connect_path(ine, mlisted, slisted, mp,
-                                 xend, fatherids, xpath)
-    return 0
-
-
 def getx_fromid(xid, listed):
     for xterm in listed:
         if xterm.get_iden() == xid:
@@ -959,49 +926,6 @@ def write_de(xyldist, e0):
     f.close()
 
 
-def get_barrier(mlist, slist, startp, endp):
-    # get barrier energy for startp (reactant/product)
-    # to endp (one local minima)
-    mlisted = mergelist(mlist)
-    slisted = mergelist(slist)
-    endp.set_nid(-1)
-    ine = endp.get_e()
-    if endp.get_iden() > 0:
-        xpath = Tree()
-        fatherids = []
-        endp.set_nid(0)
-        xpath.create_node('M' + str(endp.get_iden()), 0, data=endp)
-        sdata.nidp = 0
-        connect_path(ine, mlisted, slisted, endp, startp, fatherids, xpath)
-
-        dd = []
-        for xx in xpath.all_nodes():
-            if xx.identifier < 0:
-                d = []
-                d.append(xx.data)
-                nid = xx.bpointer
-                nxx = xpath.get_node(nid)
-                while True:
-                    d.append(nxx.data)
-                    if nxx.is_root():
-                        break
-                    nid = nxx.bpointer
-                    nxx = xpath.get_node(nid)
-                dd.append(d)
-        xe = []
-        for x in dd:
-            ee = []
-            for dx in x:
-                exx = dx.get_e() - sdata.reace
-                ee.append(exx)
-            xe.append(max(ee))
-        mxe = min(xe)
-    else:
-        mxe = 0.0
-
-    return mxe
-
-
 def main():
     (reac, prod) = initrun()
     sdata.reactant = reac
@@ -1021,198 +945,6 @@ def main():
     pick.dump(sdata.yslist, f)
     f.close()
     # outputw()
-
-
-def utest1():
-    f = open('xm.dat')
-    xmlist = pick.load(f)
-    f.close()
-    f = open('xs.dat')
-    xslist = pick.load(f)
-    f.close()
-    xmlisted = mergelist(xmlist)
-    xslisted = mergelist(xslist)
-    print 'nxmlist, nxmlisted', len(xmlist), len(xmlisted)
-    print 'nxslist, nsmlisted', len(xslist), len(xslisted)
-    xend = cp(xmlist[0])
-    xm = cp(xmlist[-3])
-    print xm.get_iden()
-    fatherids = []
-    xpath = Tree()
-    xm.set_nid(0)
-    xpath.create_node('Minima' + str(xm.get_iden()), 0, data=xm)
-    xpath.show()
-    sdata.nidp = 0
-    xend.set_nid(-1)
-    connect_path(xmlisted, xslisted, xm, xend, fatherids, xpath)
-    xpath.show()
-
-    dd = []
-    for xxx in xpath.all_nodes():
-        if xxx.identifier < 0:
-            print 'WA'
-            d = []
-            d.append(xxx.data)
-            nid = xxx.bpointer
-            xx = xpath.get_node(nid)
-            while True:
-                d.append(xx.data)
-                if xx.is_root():
-                    break
-                nid = xx.bpointer
-                xx = xpath.get_node(nid)
-            dd.append(d)
-
-    print len(dd)
-
-    for x in dd:
-        print 'EE',
-        ee = []
-        for xx in x:
-            print xx.get_e() - xend.get_e(),
-            ee.append(xx.get_e() - xend.get_e())
-        print
-        print max(ee)
-
-
-def utest2():
-    f = open('xllist.bin')
-    xmlist = pick.load(f)
-    f.close()
-    f = open('xslist.bin')
-    xslist = pick.load(f)
-    f.close()
-    f = open('yllist.bin')
-    ymlist = pick.load(f)
-    f.close()
-    f = open('yslist.bin')
-    yslist = pick.load(f)
-    f.close()
-
-    xmlisted = mergelist(xmlist)
-    xslisted = mergelist(xslist)
-    ymlisted = mergelist(ymlist)
-    yslisted = mergelist(yslist)
-
-    xend = cp(xmlist[0])
-    # print 'xend', xend.get_e()
-    yend = cp(ymlist[0])
-
-    sdata.types = xend.get_types()
-
-    goodlist = []
-    for xx in xmlist:
-        fpx = xx.get_sfp()
-        for yy in ymlist:
-            fpy = yy.get_sfp()
-            (d, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
-            if d < itin.dist:
-                print 'dd', d
-                goodlist.append([xx, yy])
-                print xx.get_iden(), yy.get_iden()
-
-    print 'len', len(goodlist)
-
-    ine = xend.get_e()
-
-    xend.set_nid(-1)
-    yend.set_nid(-1)
-    kk = 0
-    mxy = []
-    for xyxy in goodlist:
-        print 'kk', kk
-        kk += 1
-        xx = xyxy[0]
-        yy = xyxy[1]
-        print 'xx, yy', xx.get_iden(), yy.get_iden()
-        if xx.get_iden() > 0:
-            xpath = Tree()
-            fatherids = []
-            xx.set_nid(0)
-            xpath.create_node('Minima' + str(xx.get_iden()), 0, data=xx)
-            sdata.nidp = 0
-            connect_path(ine, xmlisted, xslisted, xx, xend, fatherids, xpath)
-
-        if yy.get_iden() > 0:
-            ypath = Tree()
-            fatherids = []
-            yy.set_nid(0)
-            ypath.create_node('Minima' + str(yy.get_iden()), 0, data=yy)
-            sdata.nidp = 0
-            connect_path(ine, ymlisted, yslisted, yy, yend, fatherids, ypath)
-
-        if xx.get_iden() > 0:
-            dd = []
-            for xxx in xpath.all_nodes():
-                if xxx.identifier < 0:
-                    d = []
-                    d.append(xxx.data)
-                    nid = xxx.bpointer
-                    nxx = xpath.get_node(nid)
-                    while True:
-                        d.append(nxx.data)
-                        if nxx.is_root():
-                            break
-                        nid = nxx.bpointer
-                        nxx = xpath.get_node(nid)
-                    dd.append(d)
-            xe = []
-            for x in dd:
-                ee = []
-                for dx in x:
-                    exx = dx.get_e() - xend.get_e()
-                    ee.append(exx)
-                xe.append(max(ee))
-            mxe = min(xe)
-        else:
-            mxe = 0.0
-
-        if yy.get_iden() > 0:
-            dd = []
-            for yyy in ypath.all_nodes():
-                if yyy.identifier < 0:
-                    d = []
-                    d.append(yyy.data)
-                    nid = yyy.bpointer
-                    nyy = ypath.get_node(nid)
-                    while True:
-                        d.append(nyy.data)
-                        if nyy.is_root():
-                            break
-                        nid = nyy.bpointer
-                        nyy = ypath.get_node(nid)
-                    dd.append(d)
-            ye = []
-            for y in dd:
-                ee = []
-                for dy in y:
-                    exx = dy.get_e() - xend.get_e()
-                    ee.append(exx)
-                ye.append(max(ee))
-            mye = min(ye)
-        else:
-            mye = 0.0
-
-        print 'BAR', max(mxe, mye), mxe, mye
-        mxy.append([max(mxe, mye), xx, yy])
-
-    mxysort = sorted(mxy, key=lambda x: x[0])
-    print mxysort[0][0]
-    print mxysort[0][1].get_iden()
-    print mxysort[0][2].get_iden()
-
-    goodx = cp(mxysort[0][1])
-    idenx = goodx.get_iden()
-    fatherids = []
-    xpath = Tree()
-    goodx.set_nid(0)
-    xpath.create_node('Minima' + str(goodx.get_iden()), 0, data=goodx)
-    xpath.show()
-    sdata.nidp = 0
-    xend.set_nid(-1)
-    connect_path(ine, xmlisted, xslisted, goodx, xend, fatherids, xpath)
-    xpath.show()
-    xpath.save2file('xp.dat')
 
 
 if __name__ == "__main__":

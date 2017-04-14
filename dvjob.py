@@ -21,16 +21,30 @@ from zfunc import set_cell_from_vasp
 p = read('PRESAD.vasp', format='vasp')
 # p = read('CdSe_hex',format='vasp')
 
-calc = Vasp(prec='Normal',
-            ediff=1e-5,
-            kpts=(3, 3, 3),
-            gamma=True,
-            lcharg=False,
-            npar=4,
-            ismear=0,
-            sigma=0.08,
-            isym=0,
-            )
+ccwd = os.getcwd().split('/')[-1]
+if 'x' in ccwd:
+    calc = Vasp(prec='Normal',
+                ediff=1e-5,
+                kpts=(3, 3, 3),
+                gamma=True,
+                lcharg=False,
+                npar=4,
+                ismear=0,
+                sigma=0.08,
+                isym=0,
+                )
+else:
+    calc = Vasp(prec='Normal',
+                ediff=1e-5,
+                kpts=(3, 3, 3),
+                gamma=True,
+                lcharg=False,
+                npar=4,
+                ismear=0,
+                sigma=0.08,
+                isym=0,
+                )
+
 p.set_calculator(calc)
 
 pst = itin.press / 1602.176487
