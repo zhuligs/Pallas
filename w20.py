@@ -22,7 +22,7 @@ from w2 import initrun
 from w40 import checkjob
 
 
-sys.setrecursionlimit(100000)
+# sys.setrecursionlimit(100000)
 
 
 def w20init():
