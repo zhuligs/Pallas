@@ -3,4 +3,23 @@ TODO
 
 *.swp
 *.pyc
+
+
+*.bin
+
+*.gml
+
+nout
+
+*.gexf
+
+*.dat
+
+netxout
+
+nout2
+
+testsig.py
+
+newmap.py
 *.gexf

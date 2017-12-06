@@ -61,9 +61,12 @@ class Cell:
         return self.name
 
     def set_lattice(self, lat):
-        cons = lat2lcons(lat)
+        self.lattice = np.array(lat)
+
+    def get_dlattice(self):
+        cons = lat2lcons(self.lattice)
         newlat = lcons2lat(cons)
-        self.lattice = np.array(newlat)
+        return np.array(newlat)
 
     def get_lattice(self):
         return self.lattice.copy()
@@ -136,6 +139,10 @@ class Cell:
 
     def get_stress(self):
         return self.stress.copy()
+
+    def get_coor(self):
+        coor = self.positions.tolist() + self.lattice.tolist()
+        return np.array(coor)
 
     def cal_fp(self, cutoff, lmax, natx=300):
         lat = self.lattice

@@ -10,7 +10,8 @@ from ase.io import read, write
 # import os
 # import sys
 import numpy as np
-from tsase.calculators.vasp_ext import Vasp
+# from tsase.calculators.vasp_ext import Vasp
+from ase.calculators.dftb import Dftb
 import cPickle as pick
 
 import itin
@@ -21,29 +22,36 @@ from zfunc import set_cell_from_vasp
 p = read('PRESAD.vasp', format='vasp')
 # p = read('CdSe_hex',format='vasp')
 
-ccwd = os.getcwd().split('/')[-1]
-if 'x' in ccwd:
-    calc = Vasp(prec='Normal',
-                ediff=1e-5,
-                kpts=(3, 3, 3),
-                gamma=True,
-                lcharg=False,
-                npar=4,
-                ismear=0,
-                sigma=0.08,
-                isym=0,
-                )
-else:
-    calc = Vasp(prec='Normal',
-                ediff=1e-5,
-                kpts=(3, 3, 3),
-                gamma=True,
-                lcharg=False,
-                npar=4,
-                ismear=0,
-                sigma=0.08,
-                isym=0,
-                )
+calc = Dftb(label='SiO2',
+            atoms=p,
+            Hamiltonian_MaxAngularMomentum_='',
+            Hamiltonian_MaxAngularMomentum_Si='"p"',
+            Hamiltonian_MaxAngularMomentum_O='"p"',
+            kpts=(5,5,5),)
+
+# ccwd = os.getcwd().split('/')[-1]
+# if 'x' in ccwd:
+#     calc = Vasp(prec='Normal',
+#                 ediff=1e-5,
+#                 kpts=(3, 3, 3),
+#                 gamma=True,
+#                 lcharg=False,
+#                 npar=4,
+#                 ismear=0,
+#                 sigma=0.08,
+#                 isym=0,
+#                 )
+# else:
+#     calc = Vasp(prec='Normal',
+#                 ediff=1e-5,
+#                 kpts=(3, 3, 3),
+#                 gamma=True,
+#                 lcharg=False,
+#                 npar=4,
+#                 ismear=0,
+#                 sigma=0.08,
+#                 isym=0,
+#                 )
 
 p.set_calculator(calc)
 
@@ -118,7 +126,7 @@ try:
     pcell.set_e(h)
 except:
     pcell = set_cell_from_vasp("PRESAD.vasp")
-    h = 31118.
+    h = 151206.
     pcell.set_e(h)
 
 f = open('pcell.bin', 'w')

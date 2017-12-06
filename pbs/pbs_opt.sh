@@ -9,6 +9,6 @@ cp ../POTCAR .
 cp POSCAR POSCAR.F
 rm pcell.bin
 rm WAVECAR
-python /home/lzhu/apps/writekp.py 0.07
+python /home/lzhu/apps/writekp.py 0.05
 mpirun -n 24 /home/lzhu/apps/vasp.5.4.1/bin/vasp_std > log
 python ../ovjob.py
