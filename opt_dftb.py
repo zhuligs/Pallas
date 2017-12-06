@@ -25,7 +25,7 @@ from tsase.dimer import ssdimer
 from tsase.dimer import lanczos
 from tsase.neb.util import vunit, vrand
 
-def gopt_dftb():
+def gopt_dftb(amode):
     p1 = read('POSCAR', format='vasp')
     # tags = [a.symbol == 'Si' for a in p1]
 
@@ -45,16 +45,18 @@ def gopt_dftb():
 
     natom = len(p1)
     vol = p1.get_volume()
-    # jacob = (vol/natom)**(1.0/3.0) * natom**0.5
-    # mode = np.zeros((len(p)+3, 3))
-    # mode = vrand(mode)
+    jacob = (vol/natom)**(1.0/3.0) * natom**0.5
+    mode = np.zeros((len(p1)+3, 3))
+    mode = vrand(mode)
     # try:
     #     mode = vunit(mode)
     # except:
     #     pass
-    # cellt = p1.get_cell() + np.dot(p1.get_cell(), mode[-3:]/jacob)
-    # p1.set_cell(cellt, scale_atoms=True)
-    # p1.set_positions(p1.get_positions() + mode[:-3])
+    if amode:
+        cellt = p1.get_cell() + np.dot(p1.get_cell(), mode[-3:]/jacob)
+        p1.set_cell(cellt, scale_atoms=True)
+        p1.set_positions(p1.get_positions() + mode[:-3])
+
     pst = itin.press / 10.
 
     pstress = np.zeros((3, 3))
@@ -69,11 +71,11 @@ def gopt_dftb():
     try:
         dyn = FIRE(p1box, dt=0.1, maxmove=0.2, dtmax=0.2)
         dyn.run(fmax=0.001, steps=2000)
-
-        io.write("CONTCAR", p1, format='vasp')
+        write("CONTCAR", p1, format='vasp', direct=True)
         pcell = set_cell_from_vasp("CONTCAR")
         e = p1box.get_potential_energy()
-        pcell.set_e(e)
+        h = itin.press * pcell.get_volume() / 1602.176487 + e
+        pcell.set_e(h)
     except:
         pcell = set_cell_from_vasp("POSCAR")
         pcell.set_e(151206)
@@ -84,7 +86,9 @@ def gopt_dftb():
 
     return pcell
 
+
 if __name__ == '__main__':
-    gopt_dftb()
+    amode = True
+    gopt_dftb(amode)
 
 

@@ -18,3 +18,6 @@ press = 150
 interface = 'lammps'
 # interface = 'pbs'
 client = 'local'
+
+servername = 'memex.locale'
+serverport = 18000

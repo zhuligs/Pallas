@@ -126,7 +126,7 @@ try:
     pcell.set_e(h)
 except:
     pcell = set_cell_from_vasp("PRESAD.vasp")
-    h = 31118.
+    h = 151206.
     pcell.set_e(h)
 
 f = open('pcell.bin', 'w')

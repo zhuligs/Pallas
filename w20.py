@@ -3,9 +3,11 @@
 
 import sys
 import os
+import socket
 from copy import deepcopy as cp
 import numpy as np
 import cPickle as pick
+import time
 # from pele.storage import Database
 
 # from treelib import Node, Tree
@@ -19,13 +21,17 @@ from wrapdimer import get_rmode
 from zfunc import rundim, set_cell_from_vasp, write_cell_to_vasp, getx
 from w2 import initrun
 # from w40 import get_dimfile_ready, get_optfile_ready
-from w40 import checkjob
+# from w40 import checkjob
 
 
 # sys.setrecursionlimit(100000)
 
 
 def w20init():
+    sdata.servername = itin.servername
+    with open('PORT.txt') as f:
+        portstring = f.readline()
+    sdata.serverport = int(portstring)
     for ip in range(itin.npop):
         xdir = 'Calx' + str(ip)
         ydir = 'Caly' + str(ip)
@@ -45,7 +51,7 @@ def create_stepdata():
 def wo():
     # istep = 0
     reace = sdata.reactant.get_e()
-    print 'ZLOG, reace', reace
+    print 'ZOUT: reace', reace
     sdata.reactant.add_left(-1)
     sdata.product.add_left(-1)
     sdata.xllist.append(sdata.reactant)
@@ -93,7 +99,7 @@ def wo():
         ykeep = get_keep(ysets)
 
         if not((0 in xkeep) or (0 in ykeep)):
-            print 'ZLOG: no keep in xkeep and ykeep'
+            print 'ZOUT: no keep in xkeep and ykeep'
             break
 
         for ip in range(itin.npop):
@@ -195,9 +201,9 @@ def wo():
 
         stepx[ip].sad.add_right(xid)
         stepy[ip].sad.add_right(yid)
-        print "ZLOG: INIT STEP, IP %4d X SAD EN: %8.7E, X LOC EN: %8.7E" %\
+        print "ZOUT: INIT STEP, IP %4d X SAD EN: %8.7E, X LOC EN: %8.7E" %\
               (ip, stepx[ip].sad.get_e(), stepx[ip].loc.get_e())
-        print "ZLOG: INIT STEP, IP %4d Y SAD EN: %8.7E, Y LOC EN: %8.7E" %\
+        print "ZOUT: INIT STEP, IP %4d Y SAD EN: %8.7E, Y LOC EN: %8.7E" %\
               (ip, stepy[ip].sad.get_e(), stepy[ip].loc.get_e())
         sdata.xllist.append(stepx[ip].loc)
         sdata.yllist.append(stepy[ip].loc)
@@ -261,7 +267,7 @@ def wo():
     # sdata.gbesty = cp(Yloc[xydistSort[0][1][1]])
     sdata.gbestx = cp(stepx[xydistSort[0][1][0]].loc)
     sdata.gbesty = cp(stepy[xydistSort[0][1][1]].loc)
-    print "ZLOG: INIT STEP, bestDist: %8.7E, bestmD: %8.7E, X-Y: %4d %4d" %\
+    print "ZOUT: INIT STEP, bestDist: %8.7E, bestmD: %8.7E, X-Y: %4d %4d" %\
           (xydistSort[0][2], xydistSort[0][0],
            xydistSort[0][1][0], xydistSort[0][1][1])
 
@@ -488,9 +494,9 @@ def woo():
             stepx[ip].sad.add_right(xid)
             stepy[ip].sad.add_right(yid)
 
-            print "ZLOG: STEP %4d, IP %4d X SAD EN: %8.7E, X LOC EN: %8.7E" %\
+            print "ZOUT: STEP %4d, IP %4d X SAD EN: %8.7E, X LOC EN: %8.7E" %\
                   (istep, ip, stepx[ip].sad.get_e(), stepx[ip].loc.get_e())
-            print "ZLOG: STEP %4d, IP %4d Y SAD EN: %8.7E, Y LOC EN: %8.7E" %\
+            print "ZOUT: STEP %4d, IP %4d Y SAD EN: %8.7E, Y LOC EN: %8.7E" %\
                   (istep, ip, stepy[ip].sad.get_e(), stepy[ip].loc.get_e())
             # Xen.append(xsad.get_e())
             # Yen.append(ysad.get_e())
@@ -562,7 +568,7 @@ def woo():
         sdata.gbesty = cp(sdata.yllist[iy])
         bestmdist = xyldistSort[0][2]
         bfpdist = xyldistSort[0][0]
-        print "ZLOG: STEP %4d, fpDist: %8.7E, mDist: %8.7E, X-Y: %d %d" %\
+        print "ZOUT: STEP %4d, fpDist: %8.7E, mDist: %8.7E, X-Y: %d %d" %\
               (istep, bfpdist, bestmdist, ix, iy)
         # print "ZLOG: X %d SAD-E: %8.7E LOC-E: %8.7E" % \
         #       (ix, sdata.xslist[ix].get_e(), sdata.xllist[ix].get_e())
@@ -639,7 +645,7 @@ def woo():
 
 
 def showpath():
-    print 'ZLOG: start showpath'
+    print 'ZOUT: start showpath'
     paths = nx.all_simple_paths(sdata.G, source='xl0', target='yl0', cutoff=15)
     pathdata = []
     bes = []
@@ -666,9 +672,9 @@ def showpath():
         sdata.bestpath = sorpathdata[0][1]
         # print 'ZLOG: BARRIER: ', sorpathdata[0][0]
         # print 'ZLOG: PATH:', sorpathdata[0][1]
-    print 'ZLOG: BARRIER: ', sdata.bestbe
-    print 'ZLOG: PATH:', sdata.bestpath
-    print 'ZLOG: end showpath'
+    print 'ZOUT: BARRIER: ', sdata.bestbe
+    print 'ZOUT: PATH:', sdata.bestpath
+    print 'ZOUT: end showpath'
 
 
 def get_barrier(xy, ic, istep, xcell, cutoff):
@@ -729,20 +735,27 @@ def pushjob(xkeep, ykeep):
         for ip in range(itin.npop):
             if ykeep[ip] == 0:
                 cdirs.append(sdata.ydirs[ip])
-        print 'ZLOG: cal dir', cdirs
-        print 'ZLOG: len dir', len(cdirs)
+        print 'ZOUT: cal dir', cdirs
+        print 'ZOUT: len dir', len(cdirs)
         cwdn = os.getcwd()
         for cdir in cdirs:
             ddir = cwdn + '/' + cdir
-            f = open('sub.sh', 'w')
-            f.write("ssh memex.local << !\n")
-            f.write("cd " + ddir + "\n")
-            f.write("qsub pbs.sh\n")
-            f.write("!\n")
-            f.close()
-            jbuff = os.popen('sh sub.sh').read()
+            consock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            consock.connect((sdata.servername, sdata.serverport))
+            msg = 'subjob%' + ddir
+            consock.send(msg)
+            jbuff = consock.recv(2048)
+            consock.close()
+            # f = open('sub.sh', 'w')
+            # f.write("ssh memex.local << !\n")
+            # f.write("cd " + ddir + "\n")
+            # f.write("qsub pbs.sh\n")
+            # f.write("!\n")
+            # f.close()
+            # jbuff = os.popen('sh sub.sh').read()
             # this is desinged for memex cluster
             jid = jbuff.strip()
+            print ('* ZLOG: received job id:', jid)
             jobids.append(jid)
     elif itin.client == 'local':
         # cdirs = sdata.xdirs + sdata.ydirs
@@ -766,6 +779,51 @@ def pushjob(xkeep, ykeep):
     return jobids
 
 
+def checkjob(jobids):
+    if itin.client == 'local':
+        return 0
+    finished = False
+    while not finished:
+        finished = checkids(jobids)
+        print time.ctime(), 'ZLOG: JOB FINISHED:', finished
+        time.sleep(10)
+        if os.path.isfile('CSTOP'):
+            os.system('rm -f CSTOP')
+            print 'ZLOG: CSTOP'
+            allid = ' '.join(jobids)
+            consock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            consock.connect((sdata.servername, sdata.serverport))
+            msg = 'qdeljob%' + allid
+            consock.send(msg)
+            jbuff = consock.recv(2048)
+            consock.close()
+            return 100
+    return 0
+
+
+def checkids(jobids):
+    while True:
+        consock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        consock.connect((sdata.servername, sdata.serverport))
+        msg = 'checkjob%0'
+        consock.send(msg)
+        print ("* ZLOG: send the checkjob message")
+        jbuff = consock.recv(2048)
+        consock.close()
+        rbuff = jbuff.split('.')
+        print ("* ZLOG: received the checkjob message")
+        if rbuff[0] == 'DONE':
+            return True
+        else:
+            finished = True
+            reid = rbuff[1:]
+            for id in jobids:
+                if id in reid:
+                    print ('id in reid')
+                    finished = False
+        return finished
+
+
 def pulljob(xkeep, ykeep):
     xsets = []
     ysets = []
@@ -779,7 +837,7 @@ def pulljob(xkeep, ykeep):
             except:
                 print 'ZLOG: fail to pull x pcell.bin'
                 xx = set_cell_from_vasp(xdir + '/POSCAR.F')
-                xx.set_e(31118.)
+                xx.set_e(151206.)
         else:
             xx = 'null'
 
@@ -792,7 +850,7 @@ def pulljob(xkeep, ykeep):
             except:
                 print 'ZLOG: fail to pull y pcell.bin'
                 yy = set_cell_from_vasp(ydir + '/POSCAR.F')
-                yy.set_e(31118.)
+                yy.set_e(151206.)
         else:
             yy = 'null'
 

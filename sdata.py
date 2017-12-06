@@ -1,6 +1,9 @@
 import numpy as np
 import networkx as nx
 
+servername = 'memex.locale'
+serverport = 18000
+
 G = nx.Graph()
 
 saddlehistory = []
