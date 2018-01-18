@@ -72,3 +72,7 @@ stepx = []
 stepy = []
 bestbe = 10000.
 bestpath = []
+
+
+xen = []
+yen = []
