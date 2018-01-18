@@ -1,4 +1,5 @@
 import numpy as np
+import itdbase
 from itdbase import Cell
 import itin
 from copy import deepcopy as cp
@@ -200,7 +201,7 @@ def set_cell_from_vasp(pcar):
     except:
         del(buff[5])
         typt = np.array(buff[5], int)
-    pos = np.array(buff[7:7+itin.nat], float)
+    pos = np.array(buff[7:7 + itin.nat], float)
     xcell.set_name(itin.sname)
     xcell.set_lattice(lat)
     if buff[6][0].strip()[0] == 'D':
@@ -224,6 +225,10 @@ def write_cell_to_vasp(xcell, pcar):
     f.write('1.0\n')
     for x in lat:
         f.write("%15.9f %15.9f %15.9f\n" % tuple(x))
+    for iz in itin.znucl:
+        f.write(itdbase.atom_data[iz][1])
+        f.write('  ')
+    f.write('\n')
     for ix in typt:
         f.write(str(ix) + '  ')
     f.write('\n')
