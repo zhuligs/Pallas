@@ -21,3 +21,5 @@ client = 'local'
 
 servername = 'memex.locale'
 serverport = 18000
+
+opted_end = True

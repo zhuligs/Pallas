@@ -3,6 +3,7 @@
 import itin
 import sdata
 import fppy
+import geo_opt
 from copy import deepcopy as cp
 import cPickle as pick
 from wrapdimer import get_mode, get_0mode, get_rmode
@@ -240,12 +241,18 @@ def initrun():
         prod = pick.load(f)
         f.close()
     else:
-        import opt_dftb
+        # if itin.interface == 'dftb':
+        #     import opt_dftb
+        #     os.system('cp R.vasp POSCAR')
+        #     reac = opt_dftb.gopt_dftb(False)
+        #     os.system('cp pcell.bin reac.inbin')
+        #     os.system('cp P.vasp POSCAR')
+        #     prod = opt_dftb.gopt_dftb(False)
+        #     os.system('cp pcell.bin prod.inbin')
         os.system('cp R.vasp POSCAR')
-        reac = opt_dftb.gopt_dftb(False)
+        reac = geo_opt.opt(False)
         os.system('cp pcell.bin reac.inbin')
-        os.system('cp P.vasp POSCAR')
-        prod = opt_dftb.gopt_dftb(False)
+        prod = geo_opt.opt(False)
         os.system('cp pcell.bin prod.inbin')
     sdata.types = reac.get_types()
     fpr = reac.get_lfp()

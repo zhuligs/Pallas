@@ -65,6 +65,10 @@ def wo():
 
     stepx = create_stepdata()
     stepy = create_stepdata()
+
+    txe = []
+    tye = []
+
     for ip in range(itin.npop):
         xdir = sdata.xdirs[ip]
         ydir = sdata.ydirs[ip]
@@ -172,6 +176,11 @@ def wo():
         sdata.G.add_node(ynode_name, energy=ye, volume=yvol)
         sdata.G.add_edge('xl0', xnode_name)
         sdata.G.add_edge('yl0', ynode_name)
+        txe.append(stepx[ip].sad.get_e())
+        tye.append(stepy[ip].sad.get_e())
+
+    sdata.xen.append(txe)
+    sdata.yen.append(tye)
 
     del(xsets)
     del(ysets)
@@ -380,6 +389,9 @@ def woo():
         # stepy = sdata.evoy[istep]
         # pstepx = sdata.evox[istep - 1]
         # pstepy = sdata.evoy[istep - 1]
+        txe = []
+        tye = []
+
         stepx = create_stepdata()
         stepy = create_stepdata()
         dataf = 'stepx_' + str(istep - 1) + '.bin'
@@ -437,6 +449,8 @@ def woo():
         for ip in range(itin.npop):
             stepx[ip].sad = cp(xsets[ip])
             stepy[ip].sad = cp(ysets[ip])
+            txe.append(stepx[ip].sad.get_e())
+            tye.append(stepy[ip].sad.get_e())
             xid = update_iden(sdata.xslist, stepx[ip].sad)
             yid = update_iden(sdata.yslist, stepy[ip].sad)
             stepx[ip].sad.set_iden(xid)
@@ -473,6 +487,9 @@ def woo():
 
         del(xsets)
         del(ysets)
+
+        sdata.xen.append(txe)
+        sdata.yen.append(tye)
 
         jobids = pushjob(xkeep, ykeep)
         if checkjob(jobids) == 0:
@@ -552,8 +569,13 @@ def woo():
                     sdata.G.add_edge(xnode_name, ynode_name)
                     # if the x - y is connected, set the x y with lowest
                     # barrier energy as the global best
-                    xbarrier = get_barrier('x', ix, istep, sdata.xllist[ix], 10)
-                    ybarrier = get_barrier('y', iy, istep, sdata.yllist[iy], 10)
+                    DFS = True
+                    if DFS:
+                        xbarrier = get_barrier('x', ix, istep, sdata.xllist[ix], 10)
+                        ybarrier = get_barrier('y', iy, istep, sdata.yllist[iy], 10)
+                    else:
+                        xbarrier = get_nbar('x', ix)
+                        ybarrier = get_nbar('y', iy)
                     ebar = max(xbarrier, ybarrier)
                     mdist = ebar
                 xyldist.append([dist, [ix, iy], mdist, ee])
@@ -675,6 +697,21 @@ def showpath():
     print 'ZOUT: BARRIER: ', sdata.bestbe
     print 'ZOUT: PATH:', sdata.bestpath
     print 'ZOUT: end showpath'
+
+
+def get_nbar(xy, ic):
+    reace = sdata.reactant.get_e()
+    nstep = ic / itin.instep
+    npp = ic % itin.instep
+    eee = []
+    if xy == 'x':
+        for i in range(nstep + 1):
+            eee.append(sdata.xen[i][npp])
+    if xy == 'y':
+        for i in range(nstep + 1):
+            eee.append(sdata.yen[i][npp])
+    print 'ZOUT: NBAR E'
+    return max(eee) - reace
 
 
 def get_barrier(xy, ic, istep, xcell, cutoff):
