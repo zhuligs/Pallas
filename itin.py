@@ -1,7 +1,7 @@
 fpcut = 4.5
 lmax = 0
-ntyp = 1
-nat = 8
+ntyp = 2
+nat = 12
 ndimMax = 10
 npop = 10
 sname = 'Si'
@@ -21,3 +21,5 @@ client = 'local'
 
 servername = 'memex.locale'
 serverport = 18000
+
+opted_end = True
