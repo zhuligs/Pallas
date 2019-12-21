@@ -1,11 +1,11 @@
-fpcut = 4.5
+fpcut = 5.5
 lmax = 0
-ntyp = 2
-nat = 12
+ntyp = 3
+nat = 2
 ndimMax = 10
 npop = 10
-sname = 'Si'
-znucl = [0]
+sname = 'SrBC'
+znucl = [38,5,6]
 dist = 0.001
 ediff = 0.005
 

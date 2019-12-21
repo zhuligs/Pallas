@@ -27,7 +27,8 @@ class Cell:
                  iden=None,
                  nid=None,
                  left=None,
-                 right=None):
+                 right=None,
+                 conn=[]):
 
         if name is None:
             self.name = None
@@ -53,6 +54,7 @@ class Cell:
         self.nid = 0
         self.left = []
         self.right = []
+        self.conn = []
 
     def set_name(self, name):
         self.name = str(name)
@@ -112,6 +114,9 @@ class Cell:
 
     def get_typt(self):
         return self.typt.copy()
+    
+    def get_nat(self):
+        return len(self.positions)
 
     def set_symbols(self, symb):
         self.symbols = cp(symb)
@@ -183,6 +188,12 @@ class Cell:
 
     def get_right(self):
         return cp(self.right)
+
+    def get_conn(self):
+        return cp(self.conn)
+    
+    def add_conn(self, iden):
+        self.conn.append(iden)
 
     def set_iden(self, iden):
         self.iden = iden

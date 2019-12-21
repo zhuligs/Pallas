@@ -1,10 +1,13 @@
 import numpy as np
 import networkx as nx
+import w20data
+import itin
 
 servername = 'memex.locale'
 serverport = 18000
 
 G = nx.Graph()
+wstore = w20data.Wstorage(ediff=itin.ediff, fpdiff=itin.dist, ntyp=itin.ntyp)
 
 saddlehistory = []
 localhistory = []

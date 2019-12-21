@@ -201,7 +201,8 @@ def set_cell_from_vasp(pcar):
     except:
         del(buff[5])
         typt = np.array(buff[5], int)
-    pos = np.array(buff[7:7 + itin.nat], float)
+    nat = sum(typt)
+    pos = np.array(buff[7:7 + nat], float)
     xcell.set_name(itin.sname)
     xcell.set_lattice(lat)
     if buff[6][0].strip()[0] == 'D':

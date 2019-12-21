@@ -3,6 +3,7 @@ TODO
 
 *.swp
 *.pyc
+*.vasp
 
 
 *.bin
@@ -23,3 +24,25 @@ testsig.py
 
 newmap.py
 *.gexf
+mapa.txt
+mdsmap.txt
+mdsmap.txt0
+mdsmap.txt1
+p012
+p1
+p12
+p2
+p23
+p3
+p35
+p5
+p56
+p6
+pa
+pa0
+pa01
+pab
+pbar.so
+ppp
+zgg.so
+w20.py-s24

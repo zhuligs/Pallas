@@ -22,6 +22,8 @@ from zfunc import rundim, set_cell_from_vasp, write_cell_to_vasp, getx
 from w2 import initrun
 # from w40 import get_dimfile_ready, get_optfile_ready
 # from w40 import checkjob
+from zgg import *
+import joblib
 
 
 # sys.setrecursionlimit(100000)
@@ -52,16 +54,18 @@ def wo():
     # istep = 0
     reace = sdata.reactant.get_e()
     print 'ZOUT: reace', reace
-    sdata.reactant.add_left(-1)
-    sdata.product.add_left(-1)
+    # sdata.reactant.add_left(-1)
+    # sdata.product.add_left(-1)
     sdata.xllist.append(sdata.reactant)
     sdata.yllist.append(sdata.product)
+    sdata.reactant = sdata.wstore.add_minima(sdata.reactant)
+    sdata.product = sdata.wstore.add_minima(sdata.product)
     v = sdata.reactant.get_volume() / itin.nat
     e = sdata.reactant.get_e() - reace
-    sdata.G.add_node('xl0', energy=e, volume=v)
+    sdata.G.add_node(sdata.reactant.name, energy=e, volume=v)
     v = sdata.product.get_volume() / itin.nat
     e = sdata.product.get_e() - reace
-    sdata.G.add_node('yl0', energy=e, volume=v)
+    sdata.G.add_node(sdata.product.name, energy=e, volume=v)
 
     stepx = create_stepdata()
     stepy = create_stepdata()
@@ -145,16 +149,16 @@ def wo():
     for ip in range(itin.npop):
         stepx[ip].sad = cp(xsets[ip])
         stepy[ip].sad = cp(ysets[ip])
-        xid = update_iden(sdata.xslist, stepx[ip].sad)
-        yid = update_iden(sdata.yslist, stepy[ip].sad)
-        stepx[ip].sad.set_iden(xid)
-        stepy[ip].sad.set_iden(yid)
-        stepx[ip].sad.set_sm('S')
-        stepy[ip].sad.set_sm('S')
-        stepx[ip].sad.add_left(sdata.reactant.get_iden())
-        stepy[ip].sad.add_left(sdata.product.get_iden())
-        sdata.reactant.add_right(xid)
-        sdata.product.add_right(yid)
+        # xid = update_iden(sdata.xslist, stepx[ip].sad)
+        # yid = update_iden(sdata.yslist, stepy[ip].sad)
+        # stepx[ip].sad.set_iden(xid)
+        # stepy[ip].sad.set_iden(yid)
+        # stepx[ip].sad.set_sm('S')
+        # stepy[ip].sad.set_sm('S')
+        # stepx[ip].sad.add_left(sdata.reactant.get_iden())
+        # stepy[ip].sad.add_left(sdata.product.get_iden())
+        # sdata.reactant.add_right(xid)
+        # sdata.product.add_right(yid)
         sdata.xslist.append(stepx[ip].sad)
         sdata.yslist.append(stepy[ip].sad)
 
@@ -166,16 +170,16 @@ def wo():
         write_cell_to_vasp(stepy[ip].sad, ypcar)
         os.system('cp pbs_opt.sh ' + xdir + '/pbs.sh')
         os.system('cp pbs_opt.sh ' + ydir + '/pbs.sh')
-        xnode_name = 'xs' + str(xid)
-        xvol = xsets[ip].get_volume() / itin.nat
-        xe = xsets[ip].get_e() - reace
-        sdata.G.add_node(xnode_name, energy=xe, volume=xvol)
-        ynode_name = 'ys' + str(yid)
-        yvol = ysets[ip].get_volume() / itin.nat
-        ye = ysets[ip].get_e() - reace
-        sdata.G.add_node(ynode_name, energy=ye, volume=yvol)
-        sdata.G.add_edge('xl0', xnode_name)
-        sdata.G.add_edge('yl0', ynode_name)
+        # xnode_name = 'xs' + str(xid)
+        # xvol = xsets[ip].get_volume() / itin.nat
+        # xe = xsets[ip].get_e() - reace
+        # sdata.G.add_node(xnode_name, energy=xe, volume=xvol)
+        # ynode_name = 'ys' + str(yid)
+        # yvol = ysets[ip].get_volume() / itin.nat
+        # ye = ysets[ip].get_e() - reace
+        # sdata.G.add_node(ynode_name, energy=ye, volume=yvol)
+        # sdata.G.add_edge('xl0', xnode_name)
+        # sdata.G.add_edge('yl0', ynode_name)
         txe.append(stepx[ip].sad.get_e())
         tye.append(stepy[ip].sad.get_e())
 
@@ -199,60 +203,96 @@ def wo():
     for ip in range(itin.npop):
         stepx[ip].loc = cp(xsets[ip])
         stepy[ip].loc = cp(ysets[ip])
-        xid = update_iden(sdata.xllist, stepx[ip].loc)
-        yid = update_iden(sdata.yllist, stepy[ip].loc)
-        stepx[ip].loc.set_iden(xid)
-        stepy[ip].loc.set_iden(yid)
-        stepx[ip].loc.set_sm('M')
-        stepy[ip].loc.set_sm('M')
-        stepx[ip].loc.add_left(stepx[ip].sad.get_iden())
-        stepy[ip].loc.add_left(stepy[ip].sad.get_iden())
+        ### add x side 
+        loc = sdata.wstore.add_minima(stepx[ip].loc)
+        sad = sdata.wstore.add_saddle(stepx[ip].sad, sdata.reactant, loc)
+        ### Networkx
+        eloc = loc.get_e() - reace
+        vloc = loc.get_volume()/itin.nat
+        sdata.G.add_node(loc.name, energy=eloc, volume=vloc)
+        esad = sad.get_e() - reace
+        vsad = sad.get_volume()/itin.nat
+        sdata.G.add_node(sad.name, energy=esad, volume=vsad)
+        eb1 = max(esad, 0.0)
+        sdata.G.add_edge(sad.name, sdata.reactant.name, weight=eb1)
+        eb2 = max(esad, eloc)
+        sdata.G.add_edge(sad.name, loc.name, weight=eb2)
 
-        stepx[ip].sad.add_right(xid)
-        stepy[ip].sad.add_right(yid)
         print "ZOUT: INIT STEP, IP %4d X SAD EN: %8.7E, X LOC EN: %8.7E" %\
-              (ip, stepx[ip].sad.get_e(), stepx[ip].loc.get_e())
+              (ip, esad, eloc)
+
+        ### add y side
+        loc = sdata.wstore.add_minima(stepy[ip].loc)
+        sad = sdata.wstore.add_saddle(stepy[ip].sad, sdata.product, loc)
+        ### Networkx
+        eloc = loc.get_e() - reace
+        vloc = loc.get_volume()/itin.nat
+        sdata.G.add_node(loc.name, energy=eloc, volume=vloc)
+        esad = sad.get_e() - reace
+        vsad = sad.get_volume()/itin.nat
+        sdata.G.add_node(sad.name, energy=esad, volume=vsad)
+        eprod = sdata.product.get_e() - reace
+        eb1 = max(esad, eprod)
+        sdata.G.add_edge(sad.name, sdata.reactant.name, weight=eb1)
+        eb2 = max(esad, eloc)
+        sdata.G.add_edge(sad.name, loc.name, weight=eb2)       
+
         print "ZOUT: INIT STEP, IP %4d Y SAD EN: %8.7E, Y LOC EN: %8.7E" %\
-              (ip, stepy[ip].sad.get_e(), stepy[ip].loc.get_e())
+              (ip, esad, eloc)
+
+        # xid = update_iden(sdata.xllist, stepx[ip].loc)
+        # yid = update_iden(sdata.yllist, stepy[ip].loc)
+        # stepx[ip].loc.set_iden(xid)
+        # stepy[ip].loc.set_iden(yid)
+        # stepx[ip].loc.set_sm('M')
+        # stepy[ip].loc.set_sm('M')
+        # stepx[ip].loc.add_left(stepx[ip].sad.get_iden())
+        # stepy[ip].loc.add_left(stepy[ip].sad.get_iden())
+        # stepx[ip].sad.add_right(xid)
+        # stepy[ip].sad.add_right(yid)
+
         sdata.xllist.append(stepx[ip].loc)
         sdata.yllist.append(stepy[ip].loc)
 
         sdata.pbestx.append(stepx[ip].loc)
         sdata.pbesty.append(stepy[ip].loc)
-        xnode_name = 'xl' + str(xid)
-        xvol = xsets[ip].get_volume() / itin.nat
-        xe = xsets[ip].get_e() - reace
-        sdata.G.add_node(xnode_name, energy=xe, volume=xvol)
-        ynode_name = 'yl' + str(yid)
-        yvol = ysets[ip].get_volume() / itin.nat
-        ye = ysets[ip].get_e() - reace
-        sdata.G.add_node(ynode_name, energy=ye, volume=yvol)
-        pxnode_name = 'xs' + str(stepx[ip].sad.get_iden())
-        pynode_name = 'ys' + str(stepy[ip].sad.get_iden())
-        sdata.G.add_edge(pxnode_name, xnode_name)
-        sdata.G.add_edge(pynode_name, ynode_name)
+        # xnode_name = 'xl' + str(xid)
+        # xvol = xsets[ip].get_volume() / itin.nat
+        # xe = xsets[ip].get_e() - reace
+        # sdata.G.add_node(xnode_name, energy=xe, volume=xvol)
+        # ynode_name = 'yl' + str(yid)
+        # yvol = ysets[ip].get_volume() / itin.nat
+        # ye = ysets[ip].get_e() - reace
+        # sdata.G.add_node(ynode_name, energy=ye, volume=yvol)
+        # pxnode_name = 'xs' + str(stepx[ip].sad.get_iden())
+        # pynode_name = 'ys' + str(stepy[ip].sad.get_iden())
+        # sdata.G.add_edge(pxnode_name, xnode_name)
+        # sdata.G.add_edge(pynode_name, ynode_name)
 
     del(xsets)
     del(ysets)
     dumpdata()
 
+
+
+
     # stepx = sdata.evox[istep]
     # stepy = sdata.evoy[istep]
     xydist = []
     for ix in range(itin.npop):
-        fpx = stepx[ix].loc.get_sfp()
+        fpx = stepx[ix].loc.get_lfp()
         ex = stepx[ix].loc.get_e()
         # ex = Xsad[ix].get_e() - reace
         # ex = get_barrier(sdata.xllist, sdata.xslist, sdata.reactant,
         #                  stepx[ix].loc)
         for iy in range(itin.npop):
-            fpy = stepy[iy].loc.get_sfp()
+            fpy = stepy[iy].loc.get_lfp()
             ey = stepy[iy].loc.get_e()
             # ey = Ysad[iy].get_e() - reace
             # ey = get_barrier(sdata.yllist, sdata.yslist, sdata.product,
             #                  stepy[iy].loc)
-            # ee = max(ex, ey)
-            ee = 0.0
+            ee = max(ex, ey)
+            # ee = 0.0
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
             # mdist for multiobjective opt
             if dist < 1e-4:
@@ -264,10 +304,10 @@ def wo():
             #       mdist, dist, np.log(dist), ee
             xydist.append((mdist, (ix, iy), dist, ee))
 
-            if dist < itin.dist and abs(ex - ey) < itin.ediff:
-                xnode_name = 'xl' + str(stepx[ix].loc.get_iden())
-                ynode_name = 'yl' + str(stepy[iy].loc.get_iden())
-                sdata.G.add_edge(xnode_name, ynode_name)
+            # if dist < itin.dist and abs(ex - ey) < itin.ediff:
+            #     xnode_name = 'xl' + str(stepx[ix].loc.get_iden())
+            #     ynode_name = 'yl' + str(stepy[iy].loc.get_iden())
+            #     sdata.G.add_edge(xnode_name, ynode_name)
 
     xydistSort = sorted(xydist, key=lambda x: x[2])
     sdata.bestdist = xydistSort[0][2]
@@ -285,7 +325,7 @@ def wo():
         xytdist = []
         fpx = stepx[ix].loc.get_sfp()
         for iy in range(len(sdata.yllist)):
-            fpy = sdata.yllist[iy].get_sfp()
+            fpy = sdata.yllist[iy].get_lfp()
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
             ee = 0
             if dist < 1e-4:
@@ -302,7 +342,7 @@ def wo():
     # update pdist y
     for iy in range(itin.npop):
         yxtdist = []
-        fpy = stepy[iy].loc.get_sfp()
+        fpy = stepy[iy].loc.get_lfp()
         for ix in range(len(sdata.xllist)):
             fpx = sdata.xllist[ix].get_sfp()
             (dist, m) = fppy.fp_dist(itin.ntyp, sdata.types, fpx, fpy)
@@ -571,8 +611,8 @@ def woo():
                     # barrier energy as the global best
                     DFS = True
                     if DFS:
-                        xbarrier = get_barrier('x', ix, istep, sdata.xllist[ix], 10)
-                        ybarrier = get_barrier('y', iy, istep, sdata.yllist[iy], 10)
+                        xbarrier = get_barrier('x', ix, istep, sdata.xllist[ix], 8)
+                        ybarrier = get_barrier('y', iy, istep, sdata.yllist[iy], 8)
                     else:
                         xbarrier = get_nbar('x', ix)
                         ybarrier = get_nbar('y', iy)
@@ -668,32 +708,44 @@ def woo():
 
 def showpath():
     print 'ZOUT: start showpath'
-    paths = nx.all_simple_paths(sdata.G, source='xl0', target='yl0', cutoff=15)
-    pathdata = []
-    bes = []
-    for path in paths:
-        # print 'ZLOG: PATH:', path
-        ee = []
-        for node in path:
-            e = sdata.G.node[node]['energy']
-            ee.append(e)
-        be = max(ee)
-        if be < sdata.bestbe:
-            pathdata.append([be, path])
-            bes.append(be)
-        # print 'ZLOG: NODE-E:', ee
-        # print 'ZLOG: BARRIER:', be
-    if len(pathdata) > 0:
-        sorpath = []
-        sdata.bestbe = min(bes)
-        for pt in pathdata:
-            if abs(pt[0] - sdata.bestbe) < 0.0001:
-                sorpath.append([len(pt[1]), pt[1]])
+    reac = sdata.reactant.name
+    prod = sdata.product.name
+    bfspath = bfs(kruskal(sdata.G), reac, prod)
+    enes = nx.get_node_attributes(sdata.G,'energy')
+    pathenergy = []
+    print 'ZOUT: ######## PATHSHOW #######'
+    for xx in bfspath:
+        pathenergy.append(enes[xx])
+        print 'ZOUT:', xx, enes[xx]
+    print 'ZOUT: ######## PATHEND #######'
+    sdata.bestbe = max(pathenergy)
+    sdata.bestpath = bfspath
+    # paths = nx.all_simple_paths(sdata.G, source='xl0', target='yl0', cutoff=12)
+    # pathdata = []
+    # bes = []
+    # for path in paths:
+    #     # print 'ZLOG: PATH:', path
+    #     ee = []
+    #     for node in path:
+    #         e = sdata.G.node[node]['energy']
+    #         ee.append(e)
+    #     be = max(ee)
+    #     if be < sdata.bestbe:
+    #         pathdata.append([be, path])
+    #         bes.append(be)
+    #     # print 'ZLOG: NODE-E:', ee
+    #     # print 'ZLOG: BARRIER:', be
+    # if len(pathdata) > 0:
+    #     sorpath = []
+    #     sdata.bestbe = min(bes)
+    #     for pt in pathdata:
+    #         if abs(pt[0] - sdata.bestbe) < 0.0001:
+    #             sorpath.append([len(pt[1]), pt[1]])
 
-        sorpathdata = sorted(sorpath, key=lambda x: x[0])
-        sdata.bestpath = sorpathdata[0][1]
-        # print 'ZLOG: BARRIER: ', sorpathdata[0][0]
-        # print 'ZLOG: PATH:', sorpathdata[0][1]
+    #     sorpathdata = sorted(sorpath, key=lambda x: x[0])
+    #     sdata.bestpath = sorpathdata[0][1]
+    #     # print 'ZLOG: BARRIER: ', sorpathdata[0][0]
+    #     # print 'ZLOG: PATH:', sorpathdata[0][1]
     print 'ZOUT: BARRIER: ', sdata.bestbe
     print 'ZOUT: PATH:', sdata.bestpath
     print 'ZOUT: end showpath'
@@ -763,7 +815,7 @@ def get_barrier(xy, ic, istep, xcell, cutoff):
 
 def pushjob(xkeep, ykeep):
     jobids = []
-    if itin.client == 'pbs':
+    if itin.client == 'pbssocks':
         # cdirs = sdata.xdirs + sdata.ydirs
         cdirs = []
         for ip in range(itin.npop):
@@ -792,6 +844,31 @@ def pushjob(xkeep, ykeep):
             # jbuff = os.popen('sh sub.sh').read()
             # this is desinged for memex cluster
             jid = jbuff.strip()
+            print ('* ZLOG: received job id:', jid)
+            jobids.append(jid)
+    if itin.client == 'pbs':
+        # cdirs = sdata.xdirs + sdata.ydirs
+        cdirs = []
+        for ip in range(itin.npop):
+            if xkeep[ip] == 0:
+                cdirs.append(sdata.xdirs[ip])
+        for ip in range(itin.npop):
+            if ykeep[ip] == 0:
+                cdirs.append(sdata.ydirs[ip])
+        print 'ZOUT: cal dir', cdirs
+        print 'ZOUT: len dir', len(cdirs)
+        cwdn = os.getcwd()
+        for cdir in cdirs:
+            ddir = cwdn + '/' + cdir
+            f = open('sub.sh', 'w')
+            f.write("ssh memex.localdomain << !\n")
+            f.write("cd " + ddir + "\n")
+            f.write("sbatch pbs.sh\n")
+            f.write("!\n")
+            f.close()
+            jbuff = os.popen('sh sub.sh').read()
+            # jbuff = os.popen('cd ' + ddir + '; sbatch pbs.sh').read()
+            jid = jbuff.split()[-1]
             print ('* ZLOG: received job id:', jid)
             jobids.append(jid)
     elif itin.client == 'local':
@@ -828,35 +905,67 @@ def checkjob(jobids):
             os.system('rm -f CSTOP')
             print 'ZLOG: CSTOP'
             allid = ' '.join(jobids)
-            consock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            consock.connect((sdata.servername, sdata.serverport))
-            msg = 'qdeljob%' + allid
-            consock.send(msg)
-            jbuff = consock.recv(2048)
-            consock.close()
+            if itin.client == 'pbssocks':
+                consock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                consock.connect((sdata.servername, sdata.serverport))
+                msg = 'qdeljob%' + allid
+                consock.send(msg)
+                jbuff = consock.recv(2048)
+                consock.close()
+            elif itin.client == 'pbs':
+                os.system('scancel ' + allid)
             return 100
     return 0
 
 
 def checkids(jobids):
     while True:
-        consock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        consock.connect((sdata.servername, sdata.serverport))
-        msg = 'checkjob%0'
-        consock.send(msg)
-        print ("* ZLOG: send the checkjob message")
-        jbuff = consock.recv(2048)
-        consock.close()
-        rbuff = jbuff.split('.')
-        print ("* ZLOG: received the checkjob message")
-        if rbuff[0] == 'DONE':
-            return True
-        else:
+        if itin.client == 'pbssocks':
+            consock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            consock.connect((sdata.servername, sdata.serverport))
+            msg = 'checkjob%0'
+            consock.send(msg)
+            print ("* ZLOG: send the checkjob message")
+            jbuff = consock.recv(2048)
+            consock.close()
+            rbuff = jbuff.split('.')
+            print ("* ZLOG: received the checkjob message")
+            if rbuff[0] == 'DONE':
+                return True
+            else:
+                finished = True
+                reid = rbuff[1:]
+                for id in jobids:
+                    if id in reid:
+                        print ('id in reid')
+                        finished = False
+
+        elif itin.client == 'pbs':
+            while True:
+                jstat = os.system("squeue > qbuff")
+                if jstat == 0:
+                    break
+                else:
+                    time.sleep(10)
+            jbuff = []
+            with open("qbuff") as f:
+                for line in f:
+                    jbuff.append(line)
+            if len(jbuff) > 0:
+                reid = []
+                try:
+                    for x in jbuff[1:]:
+                        reid.append(x.split()[0])
+                except:
+                    print 'ZLOG: reid append Error'
+                    return True
+            else:
+                print 'ZLOG: Error 56'
+                return True
             finished = True
-            reid = rbuff[1:]
-            for id in jobids:
-                if id in reid:
-                    print ('id in reid')
+            for idd in jobids:
+                if idd in reid:
+                    print ('id in reid', idd) 
                     finished = False
         return finished
 
